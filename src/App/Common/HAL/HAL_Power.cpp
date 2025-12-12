@@ -18,7 +18,7 @@ void HAL::Power_Init() {
 }
 
 static float HAL::readBatteryVoltage() {
-    int raw = analogRead(BAT_ADC_PIN);
+    int raw = analogRead(CONFIG_BAT_DET_PIN);
     float vout = (raw / ADC_MAX) * REF_VOLTAGE;
     float vin = vout / VOLTAGE_DIVIDER;
     return vin;

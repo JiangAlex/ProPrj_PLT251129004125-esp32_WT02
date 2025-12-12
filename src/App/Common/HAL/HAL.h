@@ -25,7 +25,6 @@
 
 #include <stdint.h>
 #include "HAL_Def.h"
-#include "HAL_Config.h"
 #include "CommonMacro.h"
 #include "App/Configs/Config.h"
 #include <freertos/FreeRTOS.h>
@@ -54,6 +53,23 @@ namespace HAL
 
     /* I2C */
     void I2C_Init(bool startScan);
+    void I2C_Deinit();
+    bool I2C_IsDeviceConnected(uint8_t address);
+    bool I2C_ReadBytes(uint8_t deviceAddress, uint8_t registerAddress, uint8_t* data, size_t length);
+    bool I2C_WriteBytes(uint8_t deviceAddress, uint8_t registerAddress, const uint8_t* data, size_t length);
+    bool I2C_WriteByte(uint8_t deviceAddress, uint8_t registerAddress, uint8_t data);
+    bool I2C_ReadByte(uint8_t deviceAddress, uint8_t registerAddress, uint8_t &data);
+    bool I2C_ScanForDevice(uint8_t targetAddress);
+    void I2C_DisplayConnectedDevices();
+    void I2C_SetClock(uint32_t frequency);
+    uint32_t I2C_GetClock();
+    bool I2C_SetPins(int sdaPin, int sclPin);
+    bool I2C_ProbeDevice(uint8_t deviceAddress);
+    bool I2C_ResetBus();
+    bool I2C_ScanAndDisplayDevices();
+    bool I2C_TestReadWrite(uint8_t deviceAddress, uint8_t testRegister, uint8_t testValue);
+    void I2C_DisplayBusInfo();
+    void I2C_GetPins(int &sdaPin, int &sclPin);
 
     /* IMU */
     void IMU_Init(void);

@@ -9,12 +9,9 @@
 const int SERIAL_SPEED = 9600;     // 固定波特率，不可動態修改
 #define DRA818_CONFIG_UHF 1        //0: VHF , 1: UHF
 
-#define SA_RX SA818_RX_PIN   // 使用 HAL_Config.h 中的定義
-#define SA_TX SA818_TX_PIN   // 使用 HAL_Config.h 中的定義
+#define SA_RX CONFIG_SA818_RX_PIN
+#define SA_TX CONFIG_SA818_TX_PIN
 
-// 備用引腳配置（如果上面的引腳有衝突）
-#define SA_RX_ALT GPIO_NUM_18   
-#define SA_TX_ALT GPIO_NUM_19   
 //VBAT Pin 8 , GND Pin 9,10 
 
 //HardwareSerial dra_serial(1);
@@ -41,17 +38,17 @@ void HAL::SA818_Init()
     Serial.print("initializing I/O ... \r\n");
     
     // 初始化 SA818 控制引腳
-    pinMode(SA818_PD_PIN, OUTPUT);
-    pinMode(SA818_HL_PIN, OUTPUT);
+    pinMode(CONFIG_SA818_PD_PIN, OUTPUT);
+    pinMode(CONFIG_SA818_HL_PIN, OUTPUT);
     
     // 設定初始狀態
-    digitalWrite(SA818_PD_PIN, HIGH);  // PD=HIGH: 正常工作模式 (不是 Power Down)
-    digitalWrite(SA818_HL_PIN, LOW);   // H/L=LOW: 低功率模式 (0.5W)
+    digitalWrite(CONFIG_SA818_PD_PIN, HIGH);  // PD=HIGH: 正常工作模式 (不是 Power Down)
+    digitalWrite(CONFIG_SA818_HL_PIN, LOW);   // H/L=LOW: 低功率模式 (0.5W)
     
     // 檢查引腳配置
-    Serial.printf("SA818 UART: ESP32 RX2(GPIO%d) -> SA818 pin17(TX), ESP32 TX2(GPIO%d) -> SA818 pin16(RX)\n", SA818_RX_PIN, SA818_TX_PIN);
-    Serial.printf("SA818 Control: PD(GPIO%d)=HIGH, H/L(GPIO%d)=LOW\n", SA818_PD_PIN, SA818_HL_PIN);
-    Serial.printf("PTT Pin: GPIO%d\n", SA818_PTT_PIN);
+    Serial.printf("SA818 UART: ESP32 RX2(GPIO%d) -> SA818 pin17(TX), ESP32 TX2(GPIO%d) -> SA818 pin16(RX)\n", CONFIG_SA818_RX_PIN, CONFIG_SA818_TX_PIN);
+    Serial.printf("SA818 Control: PD(GPIO%d)=HIGH, H/L(GPIO%d)=LOW\n", CONFIG_SA818_PD_PIN, CONFIG_SA818_HL_PIN);
+    Serial.printf("PTT Pin: GPIO%d\n", CONFIG_SA818_PTT_PIN);
     
     // 清空串列緩衝區
     dra_serial.begin(SERIAL_SPEED,SERIAL_8N1,SA_RX,SA_TX);
@@ -235,10 +232,10 @@ void HAL::SA818_GetInfo(SA818_Info_t* info)
 // PTT (Push To Talk) 功能實現
 
 void HAL::PTT_Init() {
-    Serial.printf("PTT_Init: Configuring PTT pin GPIO %d\n", SA818_PTT_PIN);
+    Serial.printf("PTT_Init: Configuring PTT pin GPIO %d\n", CONFIG_SA818_PTT_PIN);
     
     // 配置 PTT 引腳為輸入模式，啟用內部上拉
-    pinMode(SA818_PTT_PIN, INPUT_PULLUP);
+    pinMode(CONFIG_SA818_PTT_PIN, INPUT_PULLUP);
     
     // 初始化狀態
     ptt_state = false;
@@ -254,7 +251,7 @@ bool HAL::PTT_IsPressed() {
     }
     
     // PTT 按鍵通常是低電平觸發（按下時接地）
-    bool current_state = (digitalRead(SA818_PTT_PIN) == LOW);
+    bool current_state = (digitalRead(CONFIG_SA818_PTT_PIN) == LOW);
     
     // 更新狀態
     prev_ptt_state = ptt_state;
@@ -285,7 +282,7 @@ void HAL::PTT_SetTransmit(bool enable) {
 
 void HAL::SA818_SetPowerDown(bool powerDown) {
     // PD 引腳：LOW = Power Down mode, HIGH = Normal operation
-    digitalWrite(SA818_PD_PIN, powerDown ? LOW : HIGH);
+    digitalWrite(CONFIG_SA818_PD_PIN, powerDown ? LOW : HIGH);
     Serial.printf("SA818 PD pin set to %s (Power %s)\n", 
                   powerDown ? "LOW" : "HIGH", 
                   powerDown ? "Down" : "Normal");
@@ -299,7 +296,7 @@ void HAL::SA818_SetPowerDown(bool powerDown) {
 
 void HAL::SA818_SetHighLowPower(bool highPower) {
     // H/L 引腳：LOW = Low Power (0.5W), HIGH = High Power (1W)
-    digitalWrite(SA818_HL_PIN, highPower ? HIGH : LOW);
+    digitalWrite(CONFIG_SA818_HL_PIN, highPower ? HIGH : LOW);
     Serial.printf("SA818 H/L pin set to %s (%s Power - %s)\n", 
                   highPower ? "HIGH" : "LOW", 
                   highPower ? "High" : "Low",
@@ -307,11 +304,11 @@ void HAL::SA818_SetHighLowPower(bool highPower) {
 }
 
 bool HAL::SA818_GetPowerDown() {
-    return digitalRead(SA818_PD_PIN) == LOW;
+    return digitalRead(CONFIG_SA818_PD_PIN) == LOW;
 }
 
 bool HAL::SA818_GetHighLowPower() {
-    return digitalRead(SA818_HL_PIN) == HIGH;
+    return digitalRead(CONFIG_SA818_HL_PIN) == HIGH;
 }
 
 // SA818 頻道管理功能

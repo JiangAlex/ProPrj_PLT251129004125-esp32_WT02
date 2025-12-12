@@ -137,4 +137,18 @@ typedef struct {
     unsigned long pressTime;
 } Button_Info_t;
 
+typedef struct {
+    float temperature;
+    float pressure;
+    float accel_x;
+    float accel_y;
+    float accel_z;
+    float mag_x;
+    float mag_y;
+    float mag_z;
+    float gyro_x;
+    float gyro_y;
+    float gyro_z;
+} GY80_Info_t;
+
 #endif // __HAL_DEF_H

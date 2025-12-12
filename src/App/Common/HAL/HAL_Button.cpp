@@ -3,10 +3,10 @@
 void HAL::Button_Init()
 {
     // 假設這些按鈕連接到 GND，並使用內部上拉
-    pinMode(BTN_MENU_OK_PIN, INPUT_PULLUP);
-    pinMode(BTN_UP_BACK_PIN, INPUT_PULLUP);
-    pinMode(BTN_DOWN_FN_PIN, INPUT_PULLUP);
-    pinMode(BTN_PTT_PIN, INPUT_PULLUP);
+    pinMode(CONFIG_MENU_OK_PIN, INPUT_PULLUP);
+    pinMode(CONFIG_UP_BACK_PIN, INPUT_PULLUP);
+    pinMode(CONFIG_DOWN_FN_PIN, INPUT_PULLUP);
+    pinMode(CONFIG_PTT_PIN, INPUT_PULLUP);
 }
 
 void HAL::Button_Update()
@@ -24,13 +24,13 @@ bool HAL::Button_IsPressed(uint8_t buttonIndex)
     uint8_t pin;
     switch (buttonIndex) {
         case BUTTON_MENU_OK:
-            pin = BTN_MENU_OK_PIN;
+            pin = CONFIG_MENU_OK_PIN;
             break;
         case BUTTON_UP_BACK:
-            pin = BTN_UP_BACK_PIN;
+            pin = CONFIG_UP_BACK_PIN;
             break;
         case BUTTON_DOWN_FN:
-            pin = BTN_DOWN_FN_PIN;
+            pin = CONFIG_DOWN_FN_PIN;
             break;
         default:
             return false; // 無效按鈕索引
@@ -50,13 +50,13 @@ void HAL::Button_GetInfo(uint8_t buttonIndex, ::Button_Info_t *info)
     uint8_t pin;
     switch (buttonIndex) {
         case BUTTON_MENU_OK:
-            pin = BTN_MENU_OK_PIN;
+            pin = CONFIG_MENU_OK_PIN;
             break;
         case BUTTON_UP_BACK:
-            pin = BTN_UP_BACK_PIN;
+            pin = CONFIG_UP_BACK_PIN;
             break;
         case BUTTON_DOWN_FN:
-            pin = BTN_DOWN_FN_PIN;
+            pin = CONFIG_DOWN_FN_PIN;
             break;
         default:
             return; // 無效按鈕索引

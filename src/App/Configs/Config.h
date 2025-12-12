@@ -48,6 +48,12 @@
 #define CONFIG_BAT_DET_PIN          -1
 #define CONFIG_BAT_CHG_DET_PIN      19
 
+/* Button Configuration */
+#define CONFIG_MENU_OK_PIN         32  // GPIO 32 - Menu/OK 按鈕
+#define CONFIG_UP_BACK_PIN         33  // GPIO 33 - UP/Back 按鈕
+#define CONFIG_DOWN_FN_PIN         34  // GPIO 34 - Down/Fn 按鈕 (輸入專用，需外部上拉)
+#define CONFIG_PTT_PIN             35  // GPIO 35 - PTT 按鈕
+
 /* IMU */
 //#define CONFIG_IMU_INT1_PIN         32 Alex1017
 //#define CONFIG_IMU_INT2_PIN         33
@@ -56,6 +62,14 @@
 #define CONFIG_MCU_SDA_PIN          21
 #define CONFIG_MCU_SCL_PIN          22
 #define CONFIG_BMP388_ID          22
+
+#define CONFIG_OLED_I2C_ADDRESS     0x3C
+#define CONFIG_BMP388_I2C_ADDRESS   0x76
+#define CONFIG_QMC5883C_I2C_ADDRESS 0x0D  
+#define CONFIG_BMA400_I2C_ADDRESS   0x68
+#define CONFIG_AHT20_I2C_ADDRESS    0x38
+#define CONFIG_CW2015_I2C_ADDRESS   0x60
+#define CONFIG_RDA5807M_I2C_ADDRESS  0x11
 
 /* Power */
 #define CONFIG_POWER_EN_PIN         -1 //21

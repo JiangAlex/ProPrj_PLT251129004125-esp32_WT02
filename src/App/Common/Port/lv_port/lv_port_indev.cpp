@@ -10,10 +10,10 @@ static void keypad_read(lv_indev_drv_t *indev_drv, lv_indev_data_t *data)
 {
     
     // 1. 讀取按鍵的物理狀態 (低電平表示按下)
-    bool ok_pressed = (digitalRead(BTN_MENU_OK_PIN) == LOW);
-    bool up_pressed = (digitalRead(BTN_UP_BACK_PIN) == LOW);
-    bool down_pressed = (digitalRead(BTN_DOWN_FN_PIN) == LOW);
-    bool ptt_pressed = (digitalRead(BTN_PTT_PIN) == LOW);
+    bool ok_pressed = (digitalRead(CONFIG_MENU_OK_PIN) == LOW);
+    bool up_pressed = (digitalRead(CONFIG_UP_BACK_PIN) == LOW);
+    bool down_pressed = (digitalRead(CONFIG_DOWN_FN_PIN) == LOW);
+    bool ptt_pressed = (digitalRead(CONFIG_PTT_PIN) == LOW);
 
     // 2. 確定哪個鍵被按下
     if (ok_pressed) {
