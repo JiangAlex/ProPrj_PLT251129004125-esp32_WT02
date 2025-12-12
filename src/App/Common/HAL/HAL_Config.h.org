@@ -1,0 +1,52 @@
+#ifndef __HAL_CONFIG_H
+#define __HAL_CONFIG_H
+
+#include "App/Configs/Config.h"
+
+/* Display Configuration */
+#define DISPLAY_WIDTH           CONFIG_SCREEN_VER_RES
+#define DISPLAY_HEIGHT          CONFIG_SCREEN_HOR_RES
+#define DISPLAY_I2C_ADDRESS     0x3C
+
+/* Button Configuration */
+#define BTN_MENU_OK_PIN         32  // GPIO 32 - Menu/OK 按鈕
+#define BTN_UP_BACK_PIN         33  // GPIO 33 - UP/Back 按鈕
+#define BTN_DOWN_FN_PIN         34  // GPIO 34 - Down/Fn 按鈕 (輸入專用，需外部上拉)
+#define BTN_PTT_PIN             35  // GPIO 35 - PTT 按鈕
+
+#define BTN_DEBOUNCE_DELAY      50   // 50ms去抖動c
+#define BTN_HOLD_TIME           2000 // 2000ms長按 (2秒)
+#define BTN_DOUBLE_CLICK_TIME   300  // 300ms雙擊間隔
+
+/* SA818 Configuration */
+#define SA818_RX_PIN            CONFIG_SA818_RX_PIN   // ESP32 RX2 -> SA818 TX pin 17
+#define SA818_TX_PIN            17   // ESP32 TX2 -> SA818 RX pin 16
+#define SA818_PD_PIN            CONFIG_SA818_PD_PIN   // SA818 PD pin 6 (Power Down control)
+#define SA818_HL_PIN            18   // SA818 H/L pin 1 (High/Low Power control)
+#define SA818_SQ_PIN            36
+#define SA818_PTT_PIN           13   // Push To Talk button
+#define SA818_BAUD              9600 // Fixed baud rate
+#define SA818_BAUD_ALT          115200 // Alternative baud rate (unused)
+
+/* Power Configuration */
+#define BAT_ADC_PIN       -1   // ADC pin for battery monitoring
+#define BAT_ADC_CHANNEL ADC1_CHANNEL_0
+#define BAT_ADC_ATTEN ADC_ATTEN_DB_11
+#define BAT_ADC_WIDTH ADC_WIDTH_BIT_12
+
+/* I2C Configuration */
+#define I2C_SDA_PIN             21
+#define I2C_SCL_PIN             22
+#define I2C_FREQUENCY           100000
+
+/* Update Intervals (ms) */
+#define HAL_UPDATE_INTERVAL     10
+#define BUTTON_UPDATE_INTERVAL  20
+#define POWER_UPDATE_INTERVAL   500
+#define STATUS_UPDATE_INTERVAL  2000
+#define TIME_UPDATE_INTERVAL    5000
+
+/* LVGL Configuration */
+#define LVGL_BUFFER_SIZE       CONFIG_SCREEN_BUFFER_SIZE
+
+#endif // __HAL_CONFIG_H
