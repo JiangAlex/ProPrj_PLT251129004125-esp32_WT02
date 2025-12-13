@@ -2,22 +2,24 @@
 #include "App/Common/HAL/HAL.h"
 #include "App/Common/Port/Display.h"
 #include "App/App.h"
+
 #ifdef USE_TEST
 #include "test/Test.h"
 #endif
-
 
 void setup() {
   HAL::HAL_Init(); /* HAL Initialization */
   Port_Init(); /* Port Initialization */
   App_Init(); /* Application Initialization */
-   
+  #ifdef USE_TEST
+    TEST::Test_Init();
+  #endif
   //HAL::SA818_scan();
 }
 
 void loop() {
   #ifdef USE_TEST
-    TEST::Test_Init();
+    TEST::Test_App();
   #endif
   HAL::HAL_Update(); /* HAL Update */
   delay(5);  //5ms

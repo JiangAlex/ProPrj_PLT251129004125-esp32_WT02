@@ -1,5 +1,6 @@
 #include "OLEDLayout.h"
 #include <Arduino.h>
+#include <lvgl.h>
 
 lv_obj_t* OLEDLayout::createTopBar(lv_obj_t* parent, const char* title) {
     // 創建頂部容器（單色 OLED 標題區域）
