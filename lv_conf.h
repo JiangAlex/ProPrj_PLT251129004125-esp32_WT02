@@ -6,7 +6,7 @@
 #ifndef LV_CONF_H
 #define LV_CONF_H
 
-#define LV_COLOR_DEPTH 16
+#define LV_COLOR_DEPTH 1
 #define LV_COLOR_16_SWAP 0
 #define LV_MEM_SIZE (48U * 1024U)
 #define LV_DISP_DEF_REFR_PERIOD 30
@@ -46,7 +46,7 @@
 #define LV_USE_FONT_PLACEHOLDER 1
 #define LV_FONT_SUBPX 0
 #define LV_USE_FONT_COMPRESSED 0
-#define LV_ANTIALIAS 1
+#define LV_ANTIALIAS 0
 
 #define LV_USE_ARC 1
 #define LV_USE_BAR 1

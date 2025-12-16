@@ -15,14 +15,18 @@ static void disp_flush_cb(lv_disp_drv_t* disp, const lv_area_t* area, lv_color_t
     uint16_t w = (area->x2 - area->x1 + 1);
     uint16_t h = (area->y2 - area->y1 + 1);
 
-    // U8g2 寫入緩衝區的參數必須是 8 的倍數
-    uint8_t tile_x = area->x1 / 8;
-    uint8_t tile_w = w / 8;
-
-    // 1. 將 LVGL 渲染好的 1-bit 數據複製到 U8g2 內部緩衝區的指定區域
-    // color_p 已經是 LVGL 渲染好的 1-bit 像素數據
-    //u8g2.writeBufferX(tile_x, area->y1, tile_w, h, (uint8_t *)color_p);
-    u8g2.drawXBM(area->x1, area->y1, w, h, (const uint8_t *)color_p);
+    // 逐像素绘制到U8g2
+    for (int16_t y = 0; y < h; y++) {
+        for (int16_t x = 0; x < w; x++) {
+            uint32_t idx = y * w + x;
+            if (color_p[idx].full) {  // 白色像素
+                u8g2.setDrawColor(1);
+            } else {  // 黑色像素
+                u8g2.setDrawColor(0);
+            }
+            u8g2.drawPixel(area->x1 + x, area->y1 + y);
+        }
+    }
 
     // 2. 將更新後的內部緩衝區發送到 SSD1306 晶片
     u8g2.sendBuffer();

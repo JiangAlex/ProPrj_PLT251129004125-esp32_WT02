@@ -18,6 +18,11 @@ void HAL::Power_Init() {
 }
 
 static float HAL::readBatteryVoltage() {
+    // Check if battery detection pin is configured
+    if (CONFIG_BAT_DET_PIN < 0) {
+        return 3.7f; // Return default voltage if pin not configured
+    }
+    
     int raw = analogRead(CONFIG_BAT_DET_PIN);
     float vout = (raw / ADC_MAX) * REF_VOLTAGE;
     float vin = vout / VOLTAGE_DIVIDER;

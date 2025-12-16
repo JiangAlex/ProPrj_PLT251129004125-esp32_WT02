@@ -48,18 +48,31 @@ void App_Init()
     ACCOUNT_SEND_CMD(SysConfig, SYSCONFIG_CMD_LOAD);
 
     /* Set screen style */
-
+    //Page::StatusBar_Create(lv_scr_act());
     /* Set root default style */
 
     /* Initialize resource pool */
 
-    /* Initialize status bar */
-    Page::StatusBar_Create(lv_layer_top());
-
-    /* Initialize pages */
-    manager.Install("StartUp", "Pages/StartUp");
+    /* Initialize pages first */
+    Serial.println("Installing Startup page...");
+    manager.Install("Startup", "Pages/Startup");
+    Serial.println("Setting animation type...");
     manager.SetGlobalLoadAnimType(PageManager::LOAD_ANIM_OVER_TOP,500);
-    manager.Push("Pages/StartUp");
+    Serial.println("Pushing Startup page...");
+    manager.Push("Pages/Startup");
+    Serial.println("StartUp page push completed!");
+    
+    // 手动触发 LVGL 处理，确保页面加载事件被执行
+    //delay(10);
+    //lv_timer_handler();
+    //delay(10);
+    //lv_timer_handler();
+    Serial.println("LVGL timer handler called manually");
+    
+    /* Initialize status bar - temporarily disabled */
+    // Page::StatusBar_Create(lv_scr_act());
+    
+    
     #ifdef ENABLE_AUTO_OTA_CHECK
         App_Auto_OTA();
     #endif
