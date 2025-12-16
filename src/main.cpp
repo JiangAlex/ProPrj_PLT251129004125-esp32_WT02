@@ -7,6 +7,12 @@
 #include "test/Test.h"
 #endif
 
+#ifdef ENABLE_AUTO_OTA_CHECK
+  #include "App/Utils/WiFiManager/wifi_manager.h"
+  #include "App/Utils/OTA/ota_updater.h"
+  static WiFiManager wifiManager; // WiFi Manager instance
+#endif
+
 void setup() {
   HAL::HAL_Init(); /* HAL Initialization */
   Port_Init(); /* Port Initialization */
@@ -21,6 +27,17 @@ void loop() {
   #ifdef USE_TEST
     TEST::Test_App();
   #endif
+
+  #ifdef ENABLE_AUTO_OTA_CHECK
+    // Handle WiFi Manager portal
+    wifiManager.loop();
+  
+    // Handle automatic OTA checks (only if WiFi is connected)
+    if (wifiManager.isConnected()) {
+      otaUpdater.handleAutoCheck();
+    }
+  #endif
+
   HAL::HAL_Update(); /* HAL Update */
   delay(5);  //5ms
 }

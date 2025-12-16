@@ -26,6 +26,9 @@ void HAL::HAL_Init(void)
     // Initialize core modules
     HAL::I2C_Init(true);
     HAL::U8g2_Init(); // Initialize U8g2 for display
+    #ifdef ENABLE_AUTO_OTA_CHECK
+        HAL::WiFi_Init();
+    #endif
     // Display_Init();
     //HAL::Button_Init();
     //HAL::Clock_Init();

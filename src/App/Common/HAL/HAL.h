@@ -169,6 +169,9 @@ namespace HAL
     void WiFi_STASetEnable(bool en);
     void WiFi_GetInfo(::WiFi_Info_t *info);
 
+    /* OTA */
+    void OTA_Init();
+
     /* BLE */
     void BLE_Init(void);
     void BLE_Update(void);
