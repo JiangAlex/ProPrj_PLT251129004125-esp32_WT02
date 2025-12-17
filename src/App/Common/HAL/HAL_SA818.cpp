@@ -33,13 +33,13 @@ static uint8_t g_sa818_volume = 5; // 預設音量
 
 void HAL::SA818_Init()
 {
-    //Serial.begin(115200); // for logging
     Serial.println("SA818_Init: Starting SA818 module initialization...");
     Serial.print("initializing I/O ... \r\n");
     
     // 初始化 SA818 控制引腳
     pinMode(CONFIG_SA818_PD_PIN, OUTPUT);
     pinMode(CONFIG_SA818_HL_PIN, OUTPUT);
+    // CONFIG_SA818_SQ_PIN , CONFIG_SA818_PTT_PIN
     
     // 設定初始狀態
     digitalWrite(CONFIG_SA818_PD_PIN, HIGH);  // PD=HIGH: 正常工作模式 (不是 Power Down)
@@ -126,9 +126,6 @@ void HAL::SA818_Init()
     
     Serial.println("SA818_Init: Done...");
 
-//    Serial.print("initializing DRA818 ... ");
-//    dra = DRA818::configure(SA818_SERIAL, DRA818_VHF, 145.500, 145.500, 4, 8, 0, 0, DRA818_12K5, true, true, true);
-    //dra->configure(&dra_serial, DRA818_VHF, 145.500, 145.500, 4, 8, 0, 0, DRA818_12K5, true, true, true, &Serial);
     if (!dra) {
         Serial.println("\nError while configuring DRA818");
     }

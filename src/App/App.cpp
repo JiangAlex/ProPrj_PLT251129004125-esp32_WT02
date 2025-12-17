@@ -27,6 +27,7 @@ void App_Init()
 {
     static AppFactory factory;
     static PageManager manager(&factory);
+
     /* Make sure the default group exists */
     if (!lv_group_get_default())
     {
@@ -37,45 +38,37 @@ void App_Init()
 
     /* Initialize the data processing node */
     // Initialize DataProc System after LVGL (requires lv_mem_alloc)
-    Serial.println("Initializing DataProc System...");
     Serial.print("Free heap before DataProc init: ");
     Serial.println(ESP.getFreeHeap());
     DataProc_Init();
     Serial.print("Free heap after DataProc init: ");
     Serial.println(ESP.getFreeHeap());
-    Serial.println("DataProc System initialized");
+
     //ACCOUNT_SEND_CMD(Storage, STORAGE_CMD_LOAD);
     ACCOUNT_SEND_CMD(SysConfig, SYSCONFIG_CMD_LOAD);
 
     /* Set screen style */
-    //Page::StatusBar_Create(lv_scr_act());
+
     /* Set root default style */
 
     /* Initialize resource pool */
+    // ResourcePool::Init();
+
+    /* Initialize status bar */
+    Page::StatusBar_Create(lv_layer_top());
+    // Page::StatusBar_Create(lv_scr_act());
 
     /* Initialize pages first */
-    Serial.println("Installing Startup page...");
     manager.Install("Startup", "Pages/Startup");
-    Serial.println("Setting animation type...");
+    //manager.Install("SystemInfos", "Pages/SystemInfos");
+    //manager.Install("Settings", "Pages/Settings");
     manager.SetGlobalLoadAnimType(PageManager::LOAD_ANIM_OVER_TOP,500);
-    Serial.println("Pushing Startup page...");
     manager.Push("Pages/Startup");
-    Serial.println("StartUp page push completed!");
-    
-    // 手动触发 LVGL 处理，确保页面加载事件被执行
-    //delay(10);
-    //lv_timer_handler();
-    //delay(10);
-    //lv_timer_handler();
-    Serial.println("LVGL timer handler called manually");
-    
-    /* Initialize status bar - temporarily disabled */
-    // Page::StatusBar_Create(lv_scr_act());
-    
     
     #ifdef ENABLE_AUTO_OTA_CHECK
         App_Auto_OTA();
     #endif
+    Serial.println("App_Init END");
 }
 
 void App_Uninit()
