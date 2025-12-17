@@ -56,11 +56,8 @@ lv_obj_t *Page::StatusBar_Create(lv_obj_t *par)
         Serial.println("ERROR: par is NULL!");
         return nullptr;
     }
-
-    //確保父容器（通常是畫面）是黑底且不透明，避免繼承默認白底導致整條亮起
-    lv_obj_set_style_bg_color(par, lv_color_black(), 0);
-    lv_obj_set_style_bg_opa(par, LV_OPA_COVER, 0);
-
+    Serial.printf("[StatusBar_Create] par size: %d x %d\n", lv_obj_get_width(par), lv_obj_get_height(par));
+  
     // 創建頂部容器（單色 OLED 標題區域）
     lv_obj_t* topBar = lv_obj_create(par);
     if (!topBar) {
@@ -68,44 +65,39 @@ lv_obj_t *Page::StatusBar_Create(lv_obj_t *par)
         return nullptr;
     }
     
-    // 移除預設樣式，避免默認背景導致整條亮起
-    lv_obj_remove_style_all(topBar); // 移除所有預設樣式
-    lv_obj_set_size(topBar, 128, 16); // 頂部狀態欄：電池 + 時間
-    lv_obj_set_pos(topBar, 0, 0); // 靠頂部對齊
+    // 移除預設樣式（重要！避免白色背景）
+    lv_obj_remove_style_all(topBar);
+    lv_obj_set_size(topBar, 128, 16);
+    lv_obj_set_pos(topBar, 0, 0);
 
-    // 設置背景樣式（全亮白底）
+    // 設置黑色背景
     lv_obj_set_style_bg_color(topBar, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(topBar, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(topBar, 0, 0);
-    lv_obj_set_style_pad_all(topBar, 0, 0); // 移除內邊距
+    lv_obj_set_style_pad_all(topBar, 0, 0);
 
-    // 暫時使用 LVGL label 但簡化配置
-    lv_obj_t* timeLabel = lv_label_create(par);
+    // 時間標籤 - 放在 topBar 內
+    lv_obj_t* timeLabel = lv_label_create(topBar);
     if (!timeLabel) {
         Serial.println("ERROR: Failed to create timeLabel!");
         return topBar;
     }
     
     lv_label_set_text(timeLabel, "00:00");
-    lv_obj_set_style_text_font(timeLabel, &lv_font_unscii_16, 0); // 使用16號字體
+    lv_obj_set_style_text_font(timeLabel, &lv_font_unscii_16, 0);  // 使用 8px 字體
     lv_obj_set_style_text_color(timeLabel, lv_color_white(), 0);
-    lv_obj_set_pos(timeLabel, 2, 0);
+    lv_obj_set_style_bg_opa(timeLabel, LV_OPA_TRANSP, 0);
+    lv_obj_align(timeLabel, LV_ALIGN_LEFT_MID, 2, 0);  // 左側居中對齊
     
-    Serial.printf("TimeLabel created with font 16\n");
-#if 0
     // 右側電池標籤
     lv_obj_t* batteryLabel = lv_label_create(topBar);
-    lv_label_set_text(batteryLabel, "Bat");
-    lv_obj_set_style_text_color(batteryLabel, lv_color_black(), 0);
-    lv_obj_align(batteryLabel, LV_ALIGN_RIGHT_MID, 0, 0);
-
-    // 底部中央文字
-    lv_obj_t* centerLabel = lv_label_create(par);
-    lv_label_set_text(centerLabel, "SoftSnail");
-    lv_obj_set_style_text_color(centerLabel, lv_color_white(), 0);
-    lv_obj_align(centerLabel, LV_ALIGN_BOTTOM_MID, 0, -8);
-#endif
-    Serial.printf("OLED TopBar created: %s\n", "StatusBar_Create");
+    lv_label_set_text(batteryLabel, "100%");
+    lv_obj_set_style_text_font(batteryLabel, &lv_font_unscii_8, 0);
+    lv_obj_set_style_text_color(batteryLabel, lv_color_white(), 0);
+    lv_obj_set_style_bg_opa(timeLabel, LV_OPA_TRANSP, 0);
+    lv_obj_align(batteryLabel, LV_ALIGN_RIGHT_MID, -2, 0);  // 右側居中對齊
+    
+    Serial.printf("StatusBar created with 8px font\n");
     return topBar;
 
 }

@@ -58,8 +58,8 @@ void HAL::SA818_Init()
     }
     
     // Add power-on delay to allow SA818 module to initialize
-    Serial.println("Waiting for SA818 module to initialize...");
-    delay(3000);  // 增加到 3 秒
+    //Serial.println("Waiting for SA818 module to initialize...");
+    //delay(3000);  // 增加到 3 秒
     
     Serial.println("Creating DRA818 object...");
     #if DRA818_CONFIG_UHF

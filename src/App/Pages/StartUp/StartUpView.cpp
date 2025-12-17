@@ -3,48 +3,107 @@
 
 using namespace Page;
 
-#define COLOR_ORANGE    lv_color_hex(0xff931e)
-#define COLOR_RED    lv_color_hex(0xff0000)
+// 菜單項目文字（不含前綴）
+const char* StartupView::menuTexts[4] = {
+    "Trekking",
+    "Radio", 
+    "System",
+    "Status"
+};
 
 void StartupView::Create(lv_obj_t *root)
-{
+{   
+    // 強制更新佈局
+    lv_obj_update_layout(root);
+    Serial.printf("[StartupView] root size: %d x %d\n", lv_obj_get_width(root), lv_obj_get_height(root));
+    
+    // 初始化 UI 成員
+    ui.anim_timeline = nullptr;
+    ui.labelLogo = nullptr;
+    selectedIndex = 0;
+
+    // 設置 root 樣式：黑色背景
     lv_obj_remove_style_all(root);
-    lv_obj_set_size(root, LV_HOR_RES, LV_VER_RES);
+    lv_obj_set_size(root, 128, 48);  // 總高度 48px（38px 菜單 + 10px 底部）
+    lv_obj_set_pos(root, 0, 16);     // StatusBar 下方
+    lv_obj_set_style_bg_color(root, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(root, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(root, 0, 0);
+    lv_obj_set_style_pad_all(root, 0, 0);
 
-    lv_obj_t *cont = lv_obj_create(root);
-    lv_obj_remove_style_all(cont);
-    lv_obj_set_size(cont, 110, 40);
-    lv_obj_set_style_border_color(cont, COLOR_ORANGE, 0);
-    lv_obj_set_style_border_side(cont, LV_BORDER_SIDE_BOTTOM, 0);
-    lv_obj_set_style_border_width(cont, 3, 0);
-    lv_obj_set_style_border_post(cont, true, 0);
-    lv_obj_center(cont);
-    ui.cont = cont;
-    // child obj
-    lv_obj_t *label = lv_label_create(cont);
-    lv_obj_set_style_text_font(label, &lv_font_unscii_8, 0);
-    lv_obj_set_style_text_color(label, lv_color_white(), 0);
-    lv_label_set_text(label, "SoftSnail");
-    lv_obj_center(label);
-    ui.labelLogo = label;
+    // ========== 主菜單區域 (38px) ==========
+    lv_obj_t* menuList = lv_obj_create(root);
+    lv_obj_remove_style_all(menuList);
+    lv_obj_set_size(menuList, 128, 38);
+    lv_obj_set_pos(menuList, 0, 0);
+    lv_obj_set_style_bg_opa(menuList, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_pad_all(menuList, 0, 0);
+    lv_obj_set_flex_flow(menuList, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(menuList, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
+    lv_obj_set_scroll_dir(menuList, LV_DIR_VER);
+    lv_obj_set_scroll_snap_y(menuList, LV_SCROLL_SNAP_CENTER);
+    ui.menuList = menuList;
+    ui.cont = menuList;
 
-    ui.anim_timeline = lv_anim_timeline_create();
-#if 0    
-    // 设置出现时间 动画执行回调
-#define ANIM_DEF(start_time, obj, attr, start, end) \
-     {start_time, obj, LV_ANIM_EXEC(attr), start, end, 500, lv_anim_path_ease_out, true}
+    // 創建 4 個菜單項目（每項 9px 高）
+    for (int i = 0; i < 4; i++) {
+        lv_obj_t* item = lv_label_create(menuList);
+        lv_obj_set_style_text_font(item, &lv_font_unscii_8, 0);
+        lv_label_set_text(item, menuTexts[i]);  // 先設置基本文字，SetSelected 會更新
+        lv_obj_set_width(item, 128);
+        lv_obj_set_style_pad_left(item, 0, 0);
+        lv_obj_set_style_pad_ver(item, 1, 0);
+        
+        // 白色文字，透明背景
+        lv_obj_set_style_text_color(item, lv_color_white(), 0);
+        lv_obj_set_style_bg_opa(item, LV_OPA_TRANSP, 0);
+        
+        ui.menuItems[i] = item;
+    }
 
-    lv_anim_timeline_wrapper_t wrapper[] =
-        {
-            ANIM_DEF(0, ui.cont, width, 0, lv_obj_get_style_width(ui.cont, 0)),
-            //ANIM_DEF(500, ui.labelLogo, y, lv_obj_get_style_height(ui.cont, 0), lv_obj_get_y(ui.labelLogo)), // 从下往上
-            ANIM_DEF(500, ui.labelLogo, x, lv_obj_get_x(ui.labelLogo)+90, lv_obj_get_x(ui.labelLogo)), //
-            
-            LV_ANIM_TIMELINE_WRAPPER_END
-        };
+    // ========== 底部提示區 (10px) ==========
+    lv_obj_t* bottomBar = lv_obj_create(root);
+    lv_obj_remove_style_all(bottomBar);
+    lv_obj_set_size(bottomBar, 128, 10);
+    lv_obj_set_pos(bottomBar, 0, 38);
+    lv_obj_set_style_bg_opa(bottomBar, LV_OPA_TRANSP, 0);
+    ui.bottomBar = bottomBar;
 
-    lv_anim_timeline_add_wrapper(ui.anim_timeline, wrapper);
-#endif
+    lv_obj_t* dateLabel = lv_label_create(bottomBar);
+    lv_obj_set_style_text_font(dateLabel, &lv_font_unscii_8, 0);
+    lv_obj_set_style_text_color(dateLabel, lv_color_white(), 0);
+    lv_label_set_text(dateLabel, "SAT 12/17");
+    lv_obj_align(dateLabel, LV_ALIGN_CENTER, 0, 0);
+    ui.dateLabel = dateLabel;
+
+    // 設置初始選中項目
+    SetSelected(0);
+    
+    Serial.printf("[StartupView] Menu created with %d items\n", 4);
+}
+
+void StartupView::SetSelected(int index)
+{
+    if (index < 0) index = 0;
+    if (index >= 4) index = 3;
+    
+    // 更新所有菜單項目文字（使用 ▶ 標記選中項）
+    char buf[32];
+    for (int i = 0; i < 4; i++) {
+        if (i == index) {
+            snprintf(buf, sizeof(buf), "> %s", menuTexts[i]);  // 選中項加前綴
+        } else {
+            snprintf(buf, sizeof(buf), "  %s", menuTexts[i]);  // 未選中項加空格對齊
+        }
+        lv_label_set_text(ui.menuItems[i], buf);
+        lv_obj_set_style_text_color(ui.menuItems[i], lv_color_white(), 0);
+        lv_obj_set_style_bg_opa(ui.menuItems[i], LV_OPA_TRANSP, 0);
+    }
+    
+    selectedIndex = index;
+    
+    // 滾動到選中項目
+    lv_obj_scroll_to_view(ui.menuItems[index], LV_ANIM_ON);
 }
 
 void StartupView::Delete()

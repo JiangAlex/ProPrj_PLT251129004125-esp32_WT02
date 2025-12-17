@@ -47,16 +47,18 @@ void App_Init()
     //ACCOUNT_SEND_CMD(Storage, STORAGE_CMD_LOAD);
     ACCOUNT_SEND_CMD(SysConfig, SYSCONFIG_CMD_LOAD);
 
-    /* Set screen style */
-
-    /* Set root default style */
+    /* 設置螢幕背景為黑色（單色 OLED 必須） */
+    lv_obj_set_style_bg_color(lv_scr_act(), lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(lv_scr_act(), LV_OPA_COVER, 0);
+    
+    /* 設置 lv_layer_top 為透明 */
+    lv_obj_set_style_bg_opa(lv_layer_top(), LV_OPA_TRANSP, 0);
 
     /* Initialize resource pool */
     // ResourcePool::Init();
 
-    /* Initialize status bar */
+    /* Initialize status bar - 放在 lv_layer_top 確保始終顯示在最上層 */
     Page::StatusBar_Create(lv_layer_top());
-    // Page::StatusBar_Create(lv_scr_act());
 
     /* Initialize pages first */
     manager.Install("Startup", "Pages/Startup");

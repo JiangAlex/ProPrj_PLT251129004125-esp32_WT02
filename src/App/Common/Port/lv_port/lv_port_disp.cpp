@@ -19,10 +19,11 @@ static void disp_flush_cb(lv_disp_drv_t* disp, const lv_area_t* area, lv_color_t
     for (int16_t y = 0; y < h; y++) {
         for (int16_t x = 0; x < w; x++) {
             uint32_t idx = y * w + x;
-            if (color_p[idx].full) {  // 白色像素
-                u8g2.setDrawColor(1);
-            } else {  // 黑色像素
-                u8g2.setDrawColor(0);
+            // 單色模式：0 = 黑色（滅），非0 = 白色（亮）
+            if (color_p[idx].full == 0) {  // 黑色像素（LVGL 中 0 是黑色）
+                u8g2.setDrawColor(0);  // U8g2: 0 = 清除像素
+            } else {  // 白色像素
+                u8g2.setDrawColor(1);  // U8g2: 1 = 設置像素
             }
             u8g2.drawPixel(area->x1 + x, area->y1 + y);
         }
@@ -31,7 +32,7 @@ static void disp_flush_cb(lv_disp_drv_t* disp, const lv_area_t* area, lv_color_t
     // 2. 將更新後的內部緩衝區發送到 SSD1306 晶片
     u8g2.sendBuffer();
 
-    // 3. 通知 LVGL 刷新已完成，這樣 LVGL 就可以開始繪製下一個畫面
+    // 3. 通知 LVGL 刷新已完成
     lv_disp_flush_ready(disp);
 }
 
