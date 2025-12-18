@@ -3,8 +3,18 @@
 
 static WiFiManager wifiManager; // WiFi Manager instance
 
+// WiFi 連接成功回調
+static void onWiFiConnected() {
+    Serial.println("[HAL_WiFi] WiFi connected, syncing NTP...");
+    HAL::Clock_SyncNTP();
+}
+
 void HAL::WiFi_Init() {
 	Serial.println("Initializing WiFi...");
+	
+	// 設置連接成功回調
+	wifiManager.onConnected = onWiFiConnected;
+	
 	// 初始化 WiFi Manager
   	wifiManager.begin();
 }

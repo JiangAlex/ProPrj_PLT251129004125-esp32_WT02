@@ -31,7 +31,7 @@ void HAL::HAL_Init(void)
     #endif
     // Display_Init();
     //HAL::Button_Init();
-    //HAL::Clock_Init();
+    HAL::Clock_Init();  // 初始化時鐘
     // Power_Init();  // TODO: Implement Power_Init()
     HAL::SA818_Init();  // Enable SA818/DRA818 for testing
     //HAL::PTT_Init();    // Initialize PTT (Push To Talk)

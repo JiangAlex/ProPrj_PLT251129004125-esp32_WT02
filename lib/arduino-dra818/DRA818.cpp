@@ -101,7 +101,9 @@ int DRA818::read_response() {
         Serial.print("<LF>");
         // 檢查是否收到完整的回應行
         response_buffer[buffer_index] = '\0';
-        if (strstr(response_buffer, "+DMOCONNECT:0") != NULL) {
+        // 檢查各種成功回應: +DMOCONNECT:0, +DMOSETGROUP:0, +DMOSETVOLUME:0, +DMOSETFILTER:0
+        if (strstr(response_buffer, ":0") != NULL && 
+            (strstr(response_buffer, "+DMO") != NULL || strstr(response_buffer, "S=") != NULL)) {
           found_response = true;
           break;
         }
@@ -122,10 +124,10 @@ int DRA818::read_response() {
   
   // 檢查是否找到正確的 SA818 回應
   if (found_response) {
-    Serial.println("Response valid: YES (Found +DMOCONNECT:0)");
+    Serial.println("Response valid: YES");
     return true;
   } else {
-    Serial.printf("Response valid: NO (Expected +DMOCONNECT:0, got: %s)\n", response_buffer);
+    Serial.printf("Response valid: NO (Expected :0, got: %s)\n", response_buffer);
     return false;
   }
 }

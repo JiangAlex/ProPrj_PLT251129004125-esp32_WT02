@@ -102,6 +102,8 @@ namespace HAL
     void Clock_SetInfo(const ::Clock_Info_t *info);
     const char *Clock_GetWeekString(uint8_t week);
     void Clock_GetTimeString(char* timeStr, char* battStr);
+    bool Clock_SyncNTP();  // NTP 時間同步
+    bool Clock_IsSynced(); // 是否已同步
 
     /* GPS */
     void GPS_Init();
@@ -192,6 +194,13 @@ namespace HAL
     /* SA818 Volume */
     void SA818_SetVolume(uint8_t vol);
     uint8_t SA818_GetVolume();
+    
+    /* SA818 CTCSS & Squelch */
+    void SA818_SetCTCSS(uint8_t ctcss);         // 0=OFF, 1-38=CTCSS tone
+    uint8_t SA818_GetCTCSS();
+    void SA818_SetSquelch(uint8_t squelch);     // 0-8
+    uint8_t SA818_GetSquelch();
+    bool SA818_UpdateGroup();                   // Apply freq/CTCSS/squelch changes
     
     /* PTT (Push To Talk) */
     void PTT_Init();

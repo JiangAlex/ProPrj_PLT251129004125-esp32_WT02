@@ -29,7 +29,9 @@ static bool prev_ptt_state = false;    // 前一次 PTT 狀態
 static SA818_PowerMode current_power_mode = SA818_LOW_POWER;  // 預設低功率模式
 static int current_channel = 1;                               // 預設頻道 1
 
-static uint8_t g_sa818_volume = 5; // 預設音量
+static uint8_t g_sa818_volume = 5;    // 預設音量
+static uint8_t g_sa818_ctcss = 0;     // 預設 CTCSS OFF (0=OFF, 1-38=tone)
+static uint8_t g_sa818_squelch = 4;   // 預設靜噪 4
 
 void HAL::SA818_Init()
 {
@@ -310,6 +312,34 @@ bool HAL::SA818_GetHighLowPower() {
 
 // SA818 頻道管理功能
 
+bool HAL::SA818_UpdateGroup() {
+    if (!dra) {
+        Serial.println("SA818_UpdateGroup: SA818 not initialized");
+        return false;
+    }
+    
+    float frequency = getSA818Frequency(current_power_mode, current_channel);
+    if (frequency == 0.0) {
+        Serial.printf("SA818_UpdateGroup: Failed to get frequency\n");
+        return false;
+    }
+    
+    // group(bandwidth, freq_tx, freq_rx, ctcss_tx, squelch, ctcss_rx)
+    Serial.printf("SA818_UpdateGroup: freq=%.4f, CTCSS=%d, SQ=%d\n", 
+                  frequency, g_sa818_ctcss, g_sa818_squelch);
+    
+    int result = dra->group(DRA818_12K5, frequency, frequency, 
+                            g_sa818_ctcss, g_sa818_squelch, g_sa818_ctcss);
+    
+    if (result == 1) {
+        Serial.println("SA818_UpdateGroup: Success");
+        return true;
+    } else {
+        Serial.println("SA818_UpdateGroup: Failed");
+        return false;
+    }
+}
+
 bool HAL::SA818_SetChannel(int channel, SA818_PowerMode powerMode) {
     if (!dra) {
         Serial.println("SA818_SetChannel: SA818 not initialized");
@@ -332,11 +362,12 @@ bool HAL::SA818_SetChannel(int channel, SA818_PowerMode powerMode) {
     SA818_SetHighLowPower(powerMode == SA818_HIGH_POWER);
     
     // 配置 SA818 頻率
-    Serial.printf("SA818_SetChannel: Setting channel %d (%s) to %.4f MHz\n", 
-                  channel, getPowerModeName(powerMode), frequency);
+    Serial.printf("SA818_SetChannel: Setting channel %d (%s) to %.4f MHz, CTCSS=%d, SQ=%d\n", 
+                  channel, getPowerModeName(powerMode), frequency, g_sa818_ctcss, g_sa818_squelch);
     
-    // 使用 DRA818 庫設定頻率（TX 和 RX 使用相同頻率）
-    int result = dra->group(DRA818_12K5, frequency, frequency, 0, 4, 0);
+    // 使用 DRA818 庫設定頻率和 CTCSS
+    int result = dra->group(DRA818_12K5, frequency, frequency, 
+                            g_sa818_ctcss, g_sa818_squelch, g_sa818_ctcss);
     
     if (result == 1) {
         current_channel = channel;
@@ -412,4 +443,36 @@ void HAL::SA818_SetVolume(uint8_t vol)
 uint8_t HAL::SA818_GetVolume()
 {
     return g_sa818_volume;
+}
+
+void HAL::SA818_SetCTCSS(uint8_t ctcss)
+{
+    // CTCSS: 0=OFF, 1-38=tone index
+    if (ctcss > 38) ctcss = 38;
+    g_sa818_ctcss = ctcss;
+    Serial.printf("HAL_SA818: Set CTCSS to %d\n", ctcss);
+    
+    // 更新 SA818 設定
+    SA818_UpdateGroup();
+}
+
+uint8_t HAL::SA818_GetCTCSS()
+{
+    return g_sa818_ctcss;
+}
+
+void HAL::SA818_SetSquelch(uint8_t squelch)
+{
+    // Squelch: 0-8
+    if (squelch > 8) squelch = 8;
+    g_sa818_squelch = squelch;
+    Serial.printf("HAL_SA818: Set Squelch to %d\n", squelch);
+    
+    // 更新 SA818 設定
+    SA818_UpdateGroup();
+}
+
+uint8_t HAL::SA818_GetSquelch()
+{
+    return g_sa818_squelch;
 }

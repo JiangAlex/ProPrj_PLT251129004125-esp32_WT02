@@ -33,7 +33,7 @@ void Startup::onViewLoad()
     pinMode(BTN_OK, INPUT_PULLUP);
     
     // 創建定時器檢查按鍵
-    lv_timer_t *timer = lv_timer_create(onTimer, 100, this);  // 每 100ms 檢查一次
+    btnTimer = lv_timer_create(onTimer, 100, this);  // 每 100ms 檢查一次
 }
 
 void Startup::onViewDidLoad()
@@ -58,6 +58,13 @@ void Startup::onViewDidAppear()
 void Startup::onViewWillDisappear()
 {
     Serial.println("[ChappieCore] StartUpWillDisappear!");
+    
+    // 刪除定時器（必須在頁面消失前刪除）
+    if (btnTimer) {
+        lv_timer_del(btnTimer);
+        btnTimer = nullptr;
+        Serial.println("[ChappieCore] Timer deleted");
+    }
 }
 
 void Startup::onViewDidDisappear()
@@ -67,6 +74,8 @@ void Startup::onViewDidDisappear()
 
 void Startup::onViewUnload()
 {
+    // 注意: 此函數不會被 PageManager 調用
+    // 清理工作已移到 onViewWillDisappear
     View.Delete();
     Serial.println("[ChappieCore] StartUpUnload!");
     Model.DeInit();
@@ -130,7 +139,7 @@ void Startup::onTimer(lv_timer_t *timer)
                 break;
             case 1:  // Radio
                 Serial.println("[Menu] -> Radio");
-                // instance->_Manager->Push("Pages/Radio");
+                instance->Manager->Push("Pages/Radio");
                 break;
             case 2:  // System
                 Serial.println("[Menu] -> System");

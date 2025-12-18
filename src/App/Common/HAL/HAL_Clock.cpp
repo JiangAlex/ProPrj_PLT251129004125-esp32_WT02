@@ -1,8 +1,16 @@
 #include "HAL.h"
 #include <time.h>
 #include <sys/time.h>
+#include <WiFi.h>
 
 static bool clock_initialized = false;
+static bool clock_synced = false;
+
+// NTP 伺服器設定
+static const char* ntpServer1 = "time.stdtime.gov.tw";  // 台灣標準時間
+static const char* ntpServer2 = "pool.ntp.org";
+static const long gmtOffset_sec = 8 * 3600;  // UTC+8 (台灣)
+static const int daylightOffset_sec = 0;     // 台灣無夏令時間
 
 void HAL::Clock_Init()
 {
@@ -18,23 +26,29 @@ void HAL::Clock_Init()
 
 void HAL::Clock_GetInfo(::Clock_Info_t *info)
 {
-    if (!info || !clock_initialized) return;
+    if (!info) return;
+    
+    // 設置預設值（防止返回垃圾值）
+    info->hour = 12;
+    info->minute = 0;
+    info->second = 0;
+    info->day = 18;
+    info->month = 12;
+    info->year = 2025;
+    info->week = 4; // Thursday
+    
+    if (!clock_initialized) {
+        // 時鐘未初始化，返回預設值
+        return;
+    }
     
     struct tm timeinfo;
     time_t now = time(nullptr);
     localtime_r(&now, &timeinfo);
     
-    // 檢查時間是否有效
-    if (timeinfo.tm_year < 125 || timeinfo.tm_year > 200) {
-        // 時間無效，使用預設時間
-        info->hour = 14;
-        info->minute = 30;
-        info->second = 0;
-        info->day = 12;
-        info->month = 11;
-        info->year = 2025;
-        info->week = 2; // Tuesday
-    } else {
+    // 檢查時間是否有效 (tm_year 是從 1900 起算，125 = 2025 年)
+    if (timeinfo.tm_year >= 124 && timeinfo.tm_year <= 200) {
+        // 時間有效，使用系統時間
         info->hour = timeinfo.tm_hour;
         info->minute = timeinfo.tm_min;
         info->second = timeinfo.tm_sec;
@@ -43,6 +57,7 @@ void HAL::Clock_GetInfo(::Clock_Info_t *info)
         info->year = timeinfo.tm_year + 1900;
         info->week = timeinfo.tm_wday;
     }
+    // 否則保持預設值
 }
 
 void HAL::Clock_SetInfo(const ::Clock_Info_t *info)
@@ -87,4 +102,54 @@ void HAL::Clock_GetTimeString(char* timeStr, char* battStr)
     // 模擬電池電量 (85-99%)
     int battPercent = 85 + (millis() / 10000) % 15;
     snprintf(battStr, 16, "Batt:%d%%", battPercent);
+}
+
+bool HAL::Clock_SyncNTP()
+{
+    if (!clock_initialized) {
+        Serial.println("[Clock] Not initialized, cannot sync NTP");
+        return false;
+    }
+    
+    // 檢查 WiFi 連接狀態
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("[Clock] WiFi not connected, cannot sync NTP");
+        return false;
+    }
+    
+    Serial.println("[Clock] Starting NTP sync...");
+    Serial.printf("[Clock] NTP servers: %s, %s\n", ntpServer1, ntpServer2);
+    
+    // 配置 NTP
+    configTime(gmtOffset_sec, daylightOffset_sec, ntpServer1, ntpServer2);
+    
+    // 等待時間同步（最多 10 秒）
+    struct tm timeinfo;
+    int retry = 0;
+    const int maxRetry = 10;
+    
+    while (!getLocalTime(&timeinfo) && retry < maxRetry) {
+        Serial.printf("[Clock] Waiting for NTP sync... (%d/%d)\n", retry + 1, maxRetry);
+        delay(1000);
+        retry++;
+    }
+    
+    if (retry >= maxRetry) {
+        Serial.println("[Clock] NTP sync timeout!");
+        return false;
+    }
+    
+    clock_synced = true;
+    
+    // 打印同步後的時間
+    char buf[64];
+    strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &timeinfo);
+    Serial.printf("[Clock] NTP sync success! Time: %s (UTC+8)\n", buf);
+    
+    return true;
+}
+
+bool HAL::Clock_IsSynced()
+{
+    return clock_synced;
 }

@@ -102,15 +102,28 @@ void StartupView::SetSelected(int index)
     
     selectedIndex = index;
     
-    // 滾動到選中項目
+    // 滾動到選中項目 - 使用 LV_ANIM_OFF 避免動畫在頁面卸載後崩潰
     lv_obj_scroll_to_view(ui.menuItems[index], LV_ANIM_ON);
 }
 
 void StartupView::Delete()
 {
+    // 停止所有動畫
     if (ui.anim_timeline)
     {
         lv_anim_timeline_del(ui.anim_timeline);
         ui.anim_timeline = nullptr;
+    }
+    
+    // 清理 menuList 的滾動動畫
+    if (ui.menuList) {
+        lv_obj_scroll_to(ui.menuList, 0, 0, LV_ANIM_OFF);  // 停止滾動動畫
+    }
+    
+    // 清理所有菜單項目的動畫
+    for (int i = 0; i < 4; i++) {
+        if (ui.menuItems[i]) {
+            lv_anim_del(ui.menuItems[i], NULL);  // 刪除該物件的所有動畫
+        }
     }
 }

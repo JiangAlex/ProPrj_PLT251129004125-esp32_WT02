@@ -32,6 +32,7 @@ private:
 private:
     StartupView View;
     StartupModel Model;
+    lv_timer_t* btnTimer = nullptr;  // 按鍵定時器
 };
 
 }
