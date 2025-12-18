@@ -62,6 +62,7 @@ void App_Init()
 
     /* Initialize pages first */
     manager.Install("Startup", "Pages/Startup");
+    manager.Install("Radio", "Pages/Radio");
     //manager.Install("SystemInfos", "Pages/SystemInfos");
     //manager.Install("Settings", "Pages/Settings");
     manager.SetGlobalLoadAnimType(PageManager::LOAD_ANIM_OVER_TOP,500);
@@ -70,7 +71,6 @@ void App_Init()
     #ifdef ENABLE_AUTO_OTA_CHECK
         App_Auto_OTA();
     #endif
-    Serial.println("App_Init END");
 }
 
 void App_Uninit()
@@ -79,7 +79,7 @@ void App_Uninit()
     //ACCOUNT_SEND_CMD(Recorder,  RECORDER_CMD_STOP);
 }
 
-void App_Auto_OTA ()
+static void App_Auto_OTA ()
 {
     #ifdef OTA_SERVER_URL
         String serverURL = OTA_SERVER_URL;
@@ -141,3 +141,4 @@ void App_Auto_OTA ()
     }
     #endif
 }
+

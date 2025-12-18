@@ -1,5 +1,4 @@
 #include "StartUp.h"
-#include "HardwareSerial.h"
 
 using namespace Page;
 

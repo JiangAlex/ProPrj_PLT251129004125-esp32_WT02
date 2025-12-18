@@ -1,5 +1,6 @@
 #include "AppFactory.h"
 #include "StartUp/StartUp.h"
+#include "Radio/Radio.h"
 
 #define APP_CLASS_MATCH(className)         \
     do                                     \
@@ -13,6 +14,7 @@
 PageBase *AppFactory::CreatePage(const char *name)
 {
     APP_CLASS_MATCH(Startup);
+    APP_CLASS_MATCH(Radio);
     //APP_CLASS_MATCH(MenuPresenter);
     return nullptr;
 }

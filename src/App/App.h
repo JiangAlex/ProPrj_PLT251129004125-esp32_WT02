@@ -3,6 +3,6 @@
 
 void App_Init(void);
 void App_Uninit(void);
-void App_Auto_OTA(void);
+static void App_Auto_OTA ();
 
 #endif

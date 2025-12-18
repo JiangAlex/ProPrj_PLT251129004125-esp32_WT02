@@ -84,13 +84,6 @@ namespace HAL
     void MAG_SetCalibration(void);
 
     /* SD */
-    bool SD_Init();
-    void SD_Update();
-    bool SD_GetReady();
-    float SD_GetCardSizeMB();
-    const char *SD_GetTypeName();
-    typedef void (*SD_CallbackFunction_t)(bool insert);
-    void SD_SetEventCallback(SD_CallbackFunction_t callback);
 
     /* Power */
     void Power_Init();
@@ -118,9 +111,6 @@ namespace HAL
     double GPS_GetDistanceOffset(::GPS_Info_t *info, double preLong, double preLat);
 
     /* Buzzer */
-    void Buzz_init();
-    void Buzz_SetEnable(bool en);
-    void Buzz_Tone(uint32_t freq, int32_t duration = -1);
 
     /* Button */
     void Button_Init();
@@ -139,15 +129,6 @@ namespace HAL
     };
 
     /* Encoder */
-    void Encoder_Init();
-    void Encoder_InitLVGL();        // Initialize LVGL encoder after LVGL is ready
-    void Encoder_Update();
-    int32_t Encoder_GetDiff();
-    bool Encoder_GetIsPush();
-    bool Encoder_GetIsExit();       // Get exit/back button state (GPIO 7)
-    void Encoder_SetEnable(bool en);
-    void Encoder_PrintPinStates();  // Debug function to print encoder pin states
-    void Encoder_TestExitFunction(); // Test exit button functionality
 
     /* Audio */
     void Audio_Init();
@@ -182,10 +163,10 @@ namespace HAL
     void BLE_SetMouseMoveValue(uint8_t *c);
     void BLE_SetMouseClickValue(uint16_t b);
 
-    /* SmartAssistant */
-    bool SmartAssistant_Init();
-    void SmartAssistant_SetBegin(bool en);
-    void SmartAssistant_GetInfo(::Saa_Info_t *info);
+    /* ARPS-ESP */
+    void MicroAPRS_Init();
+    void MicroAPRS_Update();
+    static void taskAPRS(void *pvParameters);
 
     /* SA818 */
     void SA818_Init();
