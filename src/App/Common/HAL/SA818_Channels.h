@@ -11,6 +11,27 @@
 #define SA818_MIN_CHANNEL 1
 #define SA818_MAX_CHANNEL 20
 
+// Default to VHF (0) if not defined, or if explicitly set to 0
+#if !defined(DRA818_CONFIG_UHF) || (DRA818_CONFIG_UHF == 0)
+
+// VHF Low Power 頻道配置 (L-CH) - Example frequencies starting at 144.8000
+static const float SA818_L_CH_FREQUENCIES[SA818_MAX_CHANNELS] = {
+    144.8000, 144.8125, 144.8250, 144.8375, 144.8500,
+    144.8625, 144.8750, 144.8875, 144.9000, 144.9125,
+    144.9250, 144.9375, 144.9500, 144.9625, 144.9750,
+    144.9875, 145.0000, 145.0125, 145.0250, 145.0375
+};
+
+// VHF High Power 頻道配置 (H-CH) - Example frequencies
+static const float SA818_H_CH_FREQUENCIES[SA818_MAX_CHANNELS] = {
+    154.1000, 154.1125, 154.1250, 154.1375, 154.1500,
+    154.1625, 154.1750, 154.1875, 154.2000, 154.2125,
+    154.2250, 154.2375, 154.2500, 154.2625, 154.2750,
+    154.2875, 154.3000, 154.3125, 154.3250, 154.3375
+};
+
+#else
+
 // Low Power 頻道配置 (L-CH)
 static const float SA818_L_CH_FREQUENCIES[SA818_MAX_CHANNELS] = {
     409.7500,  // Channel 1
@@ -59,6 +80,8 @@ static const float SA818_H_CH_FREQUENCIES[SA818_MAX_CHANNELS] = {
     439.4375   // Channel 20
 };
 
+#endif
+
 // 輔助函數：根據功率模式和頻道號獲取頻率
 inline float getSA818Frequency(SA818_PowerMode powerMode, int channel) {
     if (channel < SA818_MIN_CHANNEL || channel > SA818_MAX_CHANNEL) {
@@ -81,9 +104,15 @@ inline const char* getPowerModeName(SA818_PowerMode powerMode) {
 
 // 輔助函數：獲取頻率範圍描述
 inline const char* getFrequencyRange(SA818_PowerMode powerMode) {
+#if !defined(DRA818_CONFIG_UHF) || (DRA818_CONFIG_UHF == 0)
+    return (powerMode == SA818_LOW_POWER) ? 
+           "144.80-145.0375 MHz" : 
+           "145.10-145.3375 MHz";
+#else
     return (powerMode == SA818_LOW_POWER) ? 
            "409.75-409.9875 MHz" : 
            "430.1375-439.4375 MHz";
+#endif
 }
 
 #endif // SA818_CHANNELS_H

@@ -81,8 +81,8 @@
 #define CONFIG_USE_STACK_INFO       0
 
 /* SA818 Configuration */
-#define CONFIG_SA818_RX_PIN            16   // ESP32 RX2 -> SA818 TX pin 17
-#define CONFIG_SA818_TX_PIN            17   // ESP32 TX2 -> SA818 RX pin 16
+#define CONFIG_SA818_RX_PIN            17   // ESP32 RX2 -> SA818 TX pin 17
+#define CONFIG_SA818_TX_PIN            16   // ESP32 TX2 -> SA818 RX pin 16
 #define CONFIG_SA818_PD_PIN            26   // SA818 PD pin 6 (Power Down control)
 #define CONFIG_SA818_HL_PIN            18   // SA818 H/L pin 1 (High/Low Power control)
 #define CONFIG_SA818_SQ_PIN            36

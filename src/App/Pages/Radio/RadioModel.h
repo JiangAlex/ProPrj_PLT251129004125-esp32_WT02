@@ -10,40 +10,41 @@ namespace Page
 class RadioModel
 {
 public:
+    RadioModel();
     void Init();
-    void DeInit();
-    void PlayMusic(const char* music);
-    void SetEncoderEnable(bool en)
-    {
-//        HAL::Encoder_SetEnable(en);
-    }
-    void SetStatusBarAppear(bool en);
+    void Deinit();
     
-    // SA818 無線電控制
+    void onEvent(Account* account, Account::EventParam_t* param);
+    void Update(const SA818_Info_t* info);
+    
+    // Getters
     int GetChannel();
-    void SetChannel(int ch);
     int GetCTCSSIndex();
-    void SetCTCSSIndex(int idx);
     bool IsHighPower();
-    void SetHighPower(bool high);
-    int GetVolume();
-    void SetVolume(int vol);
-    int GetSquelch();
-    void SetSquelch(int sq);
     int GetRSSI();
-    
-    // 獲取頻率字符串
+    int GetVolume();
+    int GetSquelch();
     float GetFrequency();
+    bool IsTransmitting();
+    void GetSA818Info(SA818_Info_t* info);
+
+    // Setters
+    void SetChannel(int ch);
+    void SetCTCSSIndex(int index);
+    void SetHighPower(bool high);
+    void SetVolume(int vol);
+    void SetSquelch(int cql);
+    float GetFrequencyFor(int channel, bool highPower);
+    
+    void PlayMusic(const char* music);
+    
+    bool IsDirty();
+    void ClearDirty();
 
 private:
-    Account* account = nullptr;  // 初始化為 nullptr
-    
-    // 本地緩存的 SA818 狀態
-    int cachedChannel = 1;
-    int cachedCTCSSIndex = 0;  // 0 = OFF
-    bool cachedHighPower = false;
-    int cachedVolume = 4;
-    int cachedSquelch = 4;
+    Account* account;
+    SA818_Info_t sa818_info;
+    bool is_dirty;
 };
 
 }

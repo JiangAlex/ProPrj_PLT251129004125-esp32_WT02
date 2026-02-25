@@ -1,31 +1,30 @@
 #include "HAL.h"
-//#include <HardwareSerial.h>
 #include <Arduino.h>
-#include "DRA818.h" // uncomment the following line in DRA818.h (#define DRA818_DEBUG)
-#include "SA818_Channels.h" // SA818 頻道配置
+#include "SA818.h"          // New SA818 driver
+#include "App/Common/DataProc/DataProc.h" // Include DataProc
 
 /* Used Pins */
-#define SA818_BAUD          9600    // 固定 SA818 波特率為 9600
-const int SERIAL_SPEED = 9600;     // 固定波特率，不可動態修改
-#define DRA818_CONFIG_UHF 1        //0: VHF , 1: UHF
+#define SA818_BAUD 9600 // 固定 SA818 波特率為 9600
+
+// Configuration is now in HAL_Def.h to ensure sync with RadioModel
+#include "SA818_Channels.h" // SA818 頻道配置
 
 #define SA_RX CONFIG_SA818_RX_PIN
 #define SA_TX CONFIG_SA818_TX_PIN
 
-//VBAT Pin 8 , GND Pin 9,10 
+//VBAT Pin 8 , GND Pin 9,10
 
-//HardwareSerial dra_serial(1);
-HardwareSerial dra_serial(2);
-
-DRA818 *dra;                // the DRA object once instanciated
-float freq;                 // the next frequency to scan
+static SA818 sa818; // Our new SA818 object instance
+static HardwareSerial& sa818_serial = Serial2; // Use Serial2 for SA818
+static Account* sa818_account = nullptr; // DataProc account for SA818
 
 // PTT (Push To Talk) 變數
 static bool ptt_initialized = false;
 static bool ptt_state = false;         // 當前 PTT 狀態
 static bool prev_ptt_state = false;    // 前一次 PTT 狀態
 
-// SA818 頻道管理變數
+// SA818 state variables
+static int16_t g_sa818_rssi = -999;
 static SA818_PowerMode current_power_mode = SA818_LOW_POWER;  // 預設低功率模式
 static int current_channel = 1;                               // 預設頻道 1
 
@@ -33,163 +32,108 @@ static uint8_t g_sa818_volume = 5;    // 預設音量
 static uint8_t g_sa818_ctcss = 0;     // 預設 CTCSS OFF (0=OFF, 1-38=tone)
 static uint8_t g_sa818_squelch = 4;   // 預設靜噪 4
 
-void HAL::SA818_Init()
+// Helper function to notify DataProc subscribers
+static void SA818_Notify()
 {
-    Serial.println("SA818_Init: Starting SA818 module initialization...");
-    Serial.print("initializing I/O ... \r\n");
-    
-    // 初始化 SA818 控制引腳
-    pinMode(CONFIG_SA818_PD_PIN, OUTPUT);
-    pinMode(CONFIG_SA818_HL_PIN, OUTPUT);
-    // CONFIG_SA818_SQ_PIN , CONFIG_SA818_PTT_PIN
-    
-    // 設定初始狀態
-    digitalWrite(CONFIG_SA818_PD_PIN, HIGH);  // PD=HIGH: 正常工作模式 (不是 Power Down)
-    digitalWrite(CONFIG_SA818_HL_PIN, LOW);   // H/L=LOW: 低功率模式 (0.5W)
-    
-    // 檢查引腳配置
-    Serial.printf("SA818 UART: ESP32 RX2(GPIO%d) -> SA818 pin17(TX), ESP32 TX2(GPIO%d) -> SA818 pin16(RX)\n", CONFIG_SA818_RX_PIN, CONFIG_SA818_TX_PIN);
-    Serial.printf("SA818 Control: PD(GPIO%d)=HIGH, H/L(GPIO%d)=LOW\n", CONFIG_SA818_PD_PIN, CONFIG_SA818_HL_PIN);
-    Serial.printf("PTT Pin: GPIO%d\n", CONFIG_SA818_PTT_PIN);
-    
-    // 清空串列緩衝區
-    dra_serial.begin(SERIAL_SPEED,SERIAL_8N1,SA_RX,SA_TX);
-    delay(100);
-    while(dra_serial.available()) {
-        dra_serial.read();
+    if (sa818_account)
+    {
+        SA818_Info_t info;
+        HAL::SA818_GetInfo(&info);
+        sa818_account->Notify("SA818", &info, sizeof(info));
+        // Serial.println("HAL_SA818: Notified DataProc");
     }
-    
-    // Add power-on delay to allow SA818 module to initialize
-    //Serial.println("Waiting for SA818 module to initialize...");
-    //delay(3000);  // 增加到 3 秒
-    
-    Serial.println("Creating DRA818 object...");
-    #if DRA818_CONFIG_UHF
-        dra = new DRA818((HardwareSerial*) &dra_serial, SA818_UHF);  // 使用 SA818_UHF 而不是 DRA818_UHF
-    #else
-        dra = new DRA818((HardwareSerial*) &dra_serial, SA818_VHF);  // 使用 SA818_VHF 而不是 DRA818_VHF
-    #endif
-    
-    #ifdef DRA818_DEBUG
-    dra->set_log(&Serial);
-    Serial.println("Debug logging enabled");
-    #endif
-    
-    // 固定使用 9600 baud rate 進行串列通信
-    Serial.printf("SA818: Using fixed baud rate %d bps\n", SERIAL_SPEED);
-    
-    // 測試基本連接
-    Serial.println("Testing SA818 connection with AT+DMOCONNECT...");
-    
-    // 清空緩衝區
-    while(dra_serial.available()) {
-        dra_serial.read();
-    }
-    
-    // 測試 AT+DMOCONNECT 命令
-    Serial.print("Command: AT+DMOCONNECT -> ");
-    dra_serial.print("AT+DMOCONNECT\r\n");
-    dra_serial.flush();
-    delay(2000);
-    
-    // 檢查回應
-    char response_buffer[100];
-    int buffer_index = 0;
-    bool found_dmoconnect = false;
-    
-    Serial.print("Response: ");
-    while(dra_serial.available() && buffer_index < 99) {
-        char c = dra_serial.read();
-        response_buffer[buffer_index++] = c;
-        
-        if (c >= 32 && c <= 126) {
-            Serial.write(c);
-        } else if (c == '\r') {
-            Serial.print("<CR>");
-        } else if (c == '\n') {
-            Serial.print("<LF>");
-        } else {
-            Serial.printf("[0x%02X]", c);
-        }
-    }
-    response_buffer[buffer_index] = '\0';
-    
-    // 檢查是否包含正確的回應
-    if (strstr(response_buffer, "+DMOCONNECT:0") != NULL) {
-        Serial.println(" *** SA818 CONNECTION SUCCESS! ***");
-        found_dmoconnect = true;
-    } else if (strstr(response_buffer, "+DMOCONNECT") != NULL) {
-        Serial.println(" *** PARTIAL SA818 RESPONSE FOUND ***");
-    } else if (strstr(response_buffer, "DMOCONNECT") != NULL) {
-        Serial.println(" *** DMOCONNECT TEXT DETECTED ***");
-    } else {
-        Serial.printf(" *** NO RESPONSE (%d bytes) ***\n", buffer_index);
-    }
-    
-    Serial.println("SA818_Init: Done...");
-
-    if (!dra) {
-        Serial.println("\nError while configuring DRA818");
-    }
-
-    // 嘗試握手 (固定使用 9600 baud rate)
-    Serial.println("Attempting handshake with SA818 at 9600 bps...");
-    
-    int handshake_attempts = 3;
-    bool handshake_success = false;
-    
-    for(int attempt = 1; attempt <= handshake_attempts; attempt++) {
-        Serial.printf("Handshake attempt %d/%d at 9600 bps\n", attempt, handshake_attempts);
-        
-        // 清空緩衝區
-        while(dra_serial.available()) {
-            dra_serial.read();
-        }
-        
-        if (dra->handshake() == true) {
-            Serial.println("*** SA818 HANDSHAKE SUCCESSFUL! ***");
-            handshake_success = true;
-            break;
-        } else {
-            Serial.printf("Handshake attempt %d failed\n", attempt);
-            delay(1000);
-        }
-    }
-    
-    if (!handshake_success) {
-        Serial.println("SA818 handshake failed at 9600 bps.");
-        Serial.println("Check SA818 connections, power supply, and baud rate setting.");
-        Serial.println("Continuing with initialization (some features may not work)...");
-    }
-    
-    #if DRA818_CONFIG_UHF
-        dra->group(DRA818_12K5, DRA818_UHF_MIN, DRA818_UHF_MIN, 0, 4, 0);
-        dra->volume(8);
-        freq = DRA818_UHF_MIN;
-    #else
-        dra->group(DRA818_12K5, DRA818_VHF_MIN, DRA818_VHF_MIN, 0, 4, 0);
-        dra->volume(8);
-        freq = DRA818_VHF_MIN;
-    #endif
-    Serial.println("SA818_Init: Starting ... ");
 }
 
-void HAL::SA818_scan()
+void HAL::SA818_Init()
 {
-    return;
-    char buf[14];
-    if (!dra) return;
-    dtostrf(freq, 8, 4, buf);  // convert frequency to string with right precision
-    Serial.print(String("SA818_Update: Scanning frequency ") +  String(buf) + String(" kHz ..."));
-    /* scan the frequency */
-    if (dra->scan(freq)) Serial.print("Found");
-        Serial.println("");
-    freq += 0.0125; //12.5kHz step
-    #if DRA818_CONFIG_UHF
-        if (freq > DRA818_UHF_MAX) freq = DRA818_UHF_MIN; // when DRA818_VHF_MAX (174.0) is reached, start over at DRA818_VHF_MIN (134.0)
-    #else
-        if (freq > DRA818_VHF_MAX) freq = DRA818_VHF_MIN; // when DRA818_VHF_MAX (174.0) is reached, start over at DRA818_VHF_MIN (134.0)
-    #endif
+    Serial.println("SA818_Init: Starting SA818 module with new driver...");
+
+    // Initialize control pins
+    pinMode(CONFIG_SA818_PD_PIN, OUTPUT);
+    pinMode(CONFIG_SA818_HL_PIN, OUTPUT);
+
+    // Reset the module by toggling the Power Down pin to ensure a clean start
+    Serial.println("SA818_Init: Resetting module via PD pin...");
+    digitalWrite(CONFIG_SA818_PD_PIN, LOW);  // Power Down (Sleep)
+    delay(500);
+    digitalWrite(CONFIG_SA818_PD_PIN, HIGH); // Normal Operation
+    delay(1500); // Give module time to boot after reset
+
+    digitalWrite(CONFIG_SA818_HL_PIN, LOW);  // Set to low power mode (0.5W)
+
+    // Initialize serial port for SA818
+    sa818_serial.begin(SA818_BAUD, SERIAL_8N1, CONFIG_SA818_RX_PIN, CONFIG_SA818_TX_PIN);
+
+    // Initialize the SA818 driver
+    bool connected = false;
+    for(int i = 0; i < 5; i++) {
+        if(sa818.begin(sa818_serial, CONFIG_SA818_PTT_PIN)) {
+            connected = true;
+            break;
+        }
+        delay(200);
+    }
+
+    if (connected) {
+        Serial.println("SA818_Init: Connection successful.");
+
+        // Force reset internal state to defaults to ensure consistency
+        current_power_mode = SA818_LOW_POWER;
+        current_channel = 1;
+        Serial.println("SA818_Init: Resetting state to Low Power, Channel 1");
+
+        // Apply default settings
+        // NOTE: The old implementation used CTCSS index. The new one uses frequency.
+        // We assume 0 for now. A lookup table will be needed for full functionality.
+        float frequency = getSA818Frequency(current_power_mode, current_channel);
+        
+        // Fix: If we are in VHF mode but got a UHF frequency (likely from default config), override it.
+        #if !defined(DRA818_CONFIG_UHF) || (DRA818_CONFIG_UHF == 0)
+        if (frequency > 200.0) {
+            frequency = 144.8000; // Default to a standard VHF frequency
+            Serial.println("SA818_Init: VHF Mode detected with UHF freq. Overriding to 144.8000 MHz.");
+        }
+        #endif
+
+        if (sa818.setGroup(frequency, frequency, 0, g_sa818_squelch)) {
+            Serial.println("SA818_Init: Group configuration successful.");
+        } else {
+            Serial.println("SA818_Init: Group configuration FAILED! Module may not transmit.");
+        }
+
+        if (sa818.setVolume(g_sa818_volume)) {
+            Serial.println("SA818_Init: Volume set successful.");
+        } else {
+            Serial.println("SA818_Init: Volume set FAILED!");
+        }
+
+        Serial.printf("SA818_Init: Set to Freq: %.4f MHz, Vol: %d, SQ: %d\n",
+                      frequency, g_sa818_volume, g_sa818_squelch);
+    } else {
+        Serial.println("SA818_Init: *** CONNECTION FAILED! Check wiring and power. ***");
+    }
+
+    // Initialize DataProc Account
+    sa818_account = new Account("SA818_HAL", DataProc::Center(), 0, nullptr);
+    
+    Serial.println("SA818_Init: Done...");
+}
+
+// This function is called periodically by HAL_Update
+void HAL::SA818_Update()
+{
+    int16_t new_rssi = sa818.scanRSSI();
+    // Only notify if RSSI changed significantly or periodically? 
+    // For now, let's update global variable. 
+    // If we want real-time UI updates, we should notify.
+    // To avoid flooding, maybe check if value changed beyond a threshold?
+    
+    if (abs(new_rssi - g_sa818_rssi) > 2 || new_rssi == -999) {
+        g_sa818_rssi = new_rssi;
+        SA818_Notify();
+    } else {
+        g_sa818_rssi = new_rssi;
+    }
 }
 
 void HAL::SA818_GetInfo(SA818_Info_t* info)
@@ -197,44 +141,26 @@ void HAL::SA818_GetInfo(SA818_Info_t* info)
     //Serial.println("SA818_GetInfo");
     memset(info, 0, sizeof(SA818_Info_t));
 
-    // 檢查 SA818 是否已初始化並可用
-    if (dra != nullptr) {
-        // SA818 已初始化，返回實際配置資訊
-        info->channel = 2;
-        #if DRA818_CONFIG_UHF
-            info->freq_rx = DRA818_UHF_MIN;  // 使用實際頻率
-            info->freq_tx = DRA818_UHF_MIN;
-        #else
-            info->freq_rx = DRA818_VHF_MIN;  // 使用實際頻率
-            info->freq_tx = DRA818_VHF_MIN;
-        #endif
-        info->squelch = 4;    // 實際靜噪設定
-        info->volume = 8;     // 實際音量設定
-        info->ctcss_rx = 0;   // 實際 CTCSS 設定
-        info->ctcss_tx = 0;
-        info->BW = DRA818_12K5;  // 頻寬設定
-        info->SQ = 4;
-    } else {
-        // SA818 未初始化或初始化失敗，返回零值
-        info->channel = 0;
-        info->freq_rx = 0.0;
-        info->freq_tx = 0.0;
-        info->squelch = 0;
-        info->volume = 0;
-        info->ctcss_rx = 0;
-        info->ctcss_tx = 0;
-        info->BW = 0;
-        info->SQ = 0;
-    }
+    // This function should be updated to get real values from the `sa818` object.
+    // For now, we return a mix of stored values and hardcoded defaults.
+    info->channel = current_channel;
+    info->freq_rx = SA818_GetCurrentFrequency();
+    info->freq_tx = SA818_GetCurrentFrequency();
+    info->squelch = g_sa818_squelch;
+    info->volume = g_sa818_volume;
+    info->ctcss_rx = g_sa818_ctcss;
+    info->ctcss_tx = g_sa818_ctcss;
+    info->rssi = g_sa818_rssi; // Add the new RSSI value
+    // info->BW and info->SQ are from the old struct, can be mapped if needed.
 }
 
 // PTT (Push To Talk) 功能實現
 
 void HAL::PTT_Init() {
-    Serial.printf("PTT_Init: Configuring PTT pin GPIO %d\n", CONFIG_SA818_PTT_PIN);
+    Serial.printf("PTT_Init: Configuring PTT Button GPIO %d\n", CONFIG_PTT_PIN);
     
     // 配置 PTT 引腳為輸入模式，啟用內部上拉
-    pinMode(CONFIG_SA818_PTT_PIN, INPUT_PULLUP);
+    pinMode(CONFIG_PTT_PIN, INPUT_PULLUP);
     
     // 初始化狀態
     ptt_state = false;
@@ -244,36 +170,38 @@ void HAL::PTT_Init() {
     Serial.println("PTT_Init: PTT system initialized");
 }
 
-bool HAL::PTT_IsPressed() {
-    if (!ptt_initialized) {
-        return false;
-    }
-    
+void HAL::PTT_Update() {
+    if (!ptt_initialized) return;
+
     // PTT 按鍵通常是低電平觸發（按下時接地）
-    bool current_state = (digitalRead(CONFIG_SA818_PTT_PIN) == LOW);
-    
-    // 更新狀態
-    prev_ptt_state = ptt_state;
-    ptt_state = current_state;
-    
+    bool current_reading = (digitalRead(CONFIG_PTT_PIN) == LOW);
+
+    if (current_reading != ptt_state) {
+        // 狀態改變，執行動作
+        ptt_state = current_reading;
+        
+        if (ptt_state) {
+            PTT_SetTransmit(true);
+        } else {
+            PTT_SetTransmit(false);
+        }
+    }
+}
+
+bool HAL::PTT_IsPressed() {
     return ptt_state;
 }
 
 void HAL::PTT_SetTransmit(bool enable) {
-    if (!dra) {
-        Serial.println("PTT_SetTransmit: SA818 not initialized");
-        return;
-    }
     
     if (enable) {
-        Serial.println("PTT: Enabling transmission mode");
-        // 這裡可以添加 SA818 發送模式的設定
-        // 例如：dra->transmit(true);
-        // 注意：實際的 SA818 傳送控制可能需要根據庫的 API 調整
+        Serial.printf("PTT: Enabling transmission mode (GPIO %d LOW)\n", CONFIG_SA818_PTT_PIN);
+        sa818.transmit(true);
+        SA818_Notify(); // Notify state change
     } else {
         Serial.println("PTT: Disabling transmission mode (receive mode)");
-        // 這裡可以添加 SA818 接收模式的設定
-        // 例如：dra->transmit(false);
+        sa818.transmit(false);
+        SA818_Notify(); // Notify state change
     }
 }
 
@@ -313,10 +241,6 @@ bool HAL::SA818_GetHighLowPower() {
 // SA818 頻道管理功能
 
 bool HAL::SA818_UpdateGroup() {
-    if (!dra) {
-        Serial.println("SA818_UpdateGroup: SA818 not initialized");
-        return false;
-    }
     
     float frequency = getSA818Frequency(current_power_mode, current_channel);
     if (frequency == 0.0) {
@@ -328,23 +252,19 @@ bool HAL::SA818_UpdateGroup() {
     Serial.printf("SA818_UpdateGroup: freq=%.4f, CTCSS=%d, SQ=%d\n", 
                   frequency, g_sa818_ctcss, g_sa818_squelch);
     
-    int result = dra->group(DRA818_12K5, frequency, frequency, 
-                            g_sa818_ctcss, g_sa818_squelch, g_sa818_ctcss);
+    bool result = sa818.setGroup(frequency, frequency, 0, g_sa818_squelch);
     
-    if (result == 1) {
+    if (result) {
         Serial.println("SA818_UpdateGroup: Success");
+        SA818_Notify();
         return true;
     } else {
-        Serial.println("SA818_UpdateGroup: Failed");
+        Serial.println("SA818_UpdateGroup: Failed to set group parameters!");
         return false;
     }
 }
 
 bool HAL::SA818_SetChannel(int channel, SA818_PowerMode powerMode) {
-    if (!dra) {
-        Serial.println("SA818_SetChannel: SA818 not initialized");
-        return false;
-    }
     
     if (channel < SA818_MIN_CHANNEL || channel > SA818_MAX_CHANNEL) {
         Serial.printf("SA818_SetChannel: Invalid channel %d (valid range: %d-%d)\n", 
@@ -366,17 +286,17 @@ bool HAL::SA818_SetChannel(int channel, SA818_PowerMode powerMode) {
                   channel, getPowerModeName(powerMode), frequency, g_sa818_ctcss, g_sa818_squelch);
     
     // 使用 DRA818 庫設定頻率和 CTCSS
-    int result = dra->group(DRA818_12K5, frequency, frequency, 
-                            g_sa818_ctcss, g_sa818_squelch, g_sa818_ctcss);
+    bool result = sa818.setGroup(frequency, frequency, 0, g_sa818_squelch);
     
-    if (result == 1) {
+    if (result) {
         current_channel = channel;
         current_power_mode = powerMode;
         Serial.printf("SA818_SetChannel: Successfully set to channel %d (%s, %.4f MHz)\n", 
                       channel, getPowerModeName(powerMode), frequency);
+        SA818_Notify();
         return true;
     } else {
-        Serial.printf("SA818_SetChannel: Failed to set channel %d\n", channel);
+        Serial.printf("SA818_SetChannel: Failed to set channel %d (Command rejected)\n", channel);
         return false;
     }
 }
@@ -432,12 +352,12 @@ void HAL::SA818_GetChannelInfo(SA818_ChannelInfo_t* info) {
 
 void HAL::SA818_SetVolume(uint8_t vol)
 {
-    if (!dra) return;
     if (vol < 1) vol = 1;
     if (vol > 8) vol = 8;
     g_sa818_volume = vol;
-    dra->volume(vol); // 實際設定到 SA818
+    sa818.setVolume(vol); // 實際設定到 SA818
     Serial.printf("HAL_SA818: Set volume to %d\n", vol);
+    SA818_Notify();
 }
 
 uint8_t HAL::SA818_GetVolume()

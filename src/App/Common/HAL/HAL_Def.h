@@ -3,10 +3,14 @@
 
 #include <stdint.h>
 
+// SA818 Band Configuration - Single Source of Truth
+// 0: VHF (134-174MHz), 1: UHF (400-480MHz)
+#define DRA818_CONFIG_UHF 0
+
 /* SA818 Power Mode Enum (Forward declaration from SA818_Channels.h) */
 enum SA818_PowerMode {
-    SA818_LOW_POWER = 0,   // L-CH: 409.75-409.9875 MHz
-    SA818_HIGH_POWER = 1   // H-CH: 430.1375-439.4375 MHz
+    SA818_LOW_POWER = 0,   // Low Power Mode
+    SA818_HIGH_POWER = 1   // High Power Mode
 };
 
 /* SA818 Info Structure */
@@ -20,6 +24,7 @@ typedef struct {
     uint8_t ctcss_tx;
     uint8_t BW;
     uint8_t SQ;
+    int16_t rssi;
 } SA818_Info_t;
 
 /* SA818 Channel Info Structure */

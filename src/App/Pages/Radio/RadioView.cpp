@@ -3,22 +3,22 @@
 
 using namespace Page;
 
-// 項目標籤
+// Item labels
 const char* RadioView::itemLabels[RADIO_ITEM_COUNT] = {
     "CH",
     "CTCSS",
     "Power",
     "RSSI",
     "VOL",
-    "CQL"
+    "SQ" // Changed from CQL to SQ for consistency
 };
 
-// CTCSS 頻率表（常用 CTCSS 音頻）
+// CTCSS frequency table
 const float RadioView::ctcssTable[] = {
     67.0f, 71.9f, 74.4f, 77.0f, 79.7f, 82.5f, 85.4f, 88.5f,
     91.5f, 94.8f, 97.4f, 100.0f, 103.5f, 107.2f, 110.9f, 114.8f,
     118.8f, 123.0f, 127.3f, 131.8f, 136.5f, 141.3f, 146.2f, 151.4f,
-    156.7f, 162.2f, 167.9f, 173.8f, 179.9f, 186.2f, 192.8f, 203.5f,
+    156.7f, 162.2f, 167.9f, 173.8f, 179.9f, 186.2f, 192.8f, 203.5f, // 32
     210.7f, 218.1f, 225.7f, 233.6f, 241.8f, 250.3f
 };
 const int RadioView::ctcssCount = sizeof(ctcssTable) / sizeof(ctcssTable[0]);
@@ -26,27 +26,29 @@ const int RadioView::ctcssCount = sizeof(ctcssTable) / sizeof(ctcssTable[0]);
 void RadioView::Create(lv_obj_t *root)
 {   
     // 強制更新佈局
-    lv_obj_update_layout(root);
+    // lv_obj_update_layout(root); // Not needed here
     Serial.printf("[RadioView] root size: %d x %d\n", lv_obj_get_width(root), lv_obj_get_height(root));
     
     // 初始化 UI 成員
     ui.anim_timeline = nullptr;
     ui.labelLogo = nullptr;
     selectedIndex = 0;
+    funcSelectedIndex = 0;
     isEditMode = false;
     inFuncArea = false;
     
+    current_frequency = 0.0f;
     // 初始值
-    values[RADIO_ITEM_CH] = 15;       // CH: 15
-    values[RADIO_ITEM_CTCSS] = 7;     // CTCSS: index 7 = 88.5Hz
+    values[RADIO_ITEM_CH] = 1;        // CH: 1
+    values[RADIO_ITEM_CTCSS] = 0;     // CTCSS: 0 = OFF
     values[RADIO_ITEM_POWER] = 1;     // Power: 1=HIGH, 0=LOW
-    values[RADIO_ITEM_RSSI] = -85;    // RSSI: -85dBm
+    values[RADIO_ITEM_RSSI] = -999;   // RSSI: -999dBm (no signal)
     values[RADIO_ITEM_VOL] = 4;       // VOL: 4
-    values[RADIO_ITEM_CQL] = 4;       // CQL: 4
+    values[RADIO_ITEM_CQL] = 4;       // SQ: 4
 
     // 設置 root 樣式：黑色背景
     lv_obj_remove_style_all(root);
-    lv_obj_set_size(root, 128, 48);  // 總高度 48px（38px 資訊區 + 10px 功能區）
+    lv_obj_set_size(root, 128, 48);  // Total height 48px (38px info area + 10px func area)
     lv_obj_set_pos(root, 0, 16);     // StatusBar 下方
     lv_obj_set_style_bg_color(root, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(root, LV_OPA_COVER, 0);
@@ -95,7 +97,7 @@ void RadioView::Create(lv_obj_t *root)
     lv_obj_t* funcLabel = lv_label_create(funcBar);
     lv_obj_set_style_text_font(funcLabel, &lv_font_unscii_8, 0);
     lv_obj_set_style_text_color(funcLabel, lv_color_white(), 0);
-    lv_label_set_text(funcLabel, "  [BACK]");
+    lv_label_set_text(funcLabel, "  [SCAN]   [BACK]");
     lv_obj_align(funcLabel, LV_ALIGN_LEFT_MID, 0, 0);
     ui.funcLabel = funcLabel;
 
@@ -134,7 +136,7 @@ void RadioView::UpdateDisplay()
         // 根據項目類型格式化值
         switch (i) {
             case RADIO_ITEM_CH:
-                snprintf(buf, sizeof(buf), "%sCH: %d", prefix, values[i]);
+                snprintf(buf, sizeof(buf), "%sCH:%d %.4f", prefix, values[i], current_frequency);
                 break;
             case RADIO_ITEM_CTCSS:
                 // 索引 0 = OFF, 索引 1-38 對應 ctcssTable[0-37]
@@ -156,7 +158,7 @@ void RadioView::UpdateDisplay()
                 snprintf(buf, sizeof(buf), "%sVOL: %d", prefix, values[i]);
                 break;
             case RADIO_ITEM_CQL:
-                snprintf(buf, sizeof(buf), "%sCQL: %d", prefix, values[i]);
+                snprintf(buf, sizeof(buf), "%sSQ: %d", prefix, values[i]);
                 break;
         }
         
@@ -166,9 +168,13 @@ void RadioView::UpdateDisplay()
     
     // 更新功能區
     if (inFuncArea) {
-        lv_label_set_text(ui.funcLabel, "> [BACK]");
+        if (funcSelectedIndex == RADIO_FUNC_SCAN) {
+            lv_label_set_text(ui.funcLabel, "> [SCAN]   [BACK]");
+        } else {
+            lv_label_set_text(ui.funcLabel, "  [SCAN] > [BACK]");
+        }
     } else {
-        lv_label_set_text(ui.funcLabel, "  [BACK]");
+        lv_label_set_text(ui.funcLabel, "  [SCAN]   [BACK]");
     }
 }
 
@@ -216,19 +222,25 @@ void RadioView::SetFuncSelected(int index)
     UpdateDisplay();
 }
 
+void RadioView::UpdateFrequency(float freq)
+{
+    current_frequency = freq;
+    UpdateDisplay();
+}
+
 void RadioView::UpdateValue(int index, int value)
 {
     if (index < 0 || index >= RADIO_ITEM_COUNT) return;
     
-    // 數值範圍限制
+    // Value range constraints
     switch (index) {
         case RADIO_ITEM_CH:
             if (value < 1) value = 1;
-            if (value > 20) value = 20;
+            if (value > 20) value = 20; // Assuming max 20 channels
             break;
         case RADIO_ITEM_CTCSS:
-            if (value < 0) value = ctcssCount - 1;  // 循環
-            if (value >= ctcssCount) value = 0;
+            if (value < 0) value = ctcssCount;  // Wrap around
+            if (value > ctcssCount) value = 0; // Wrap around (0 is OFF)
             break;
         case RADIO_ITEM_POWER:
             value = value ? 1 : 0;
@@ -238,8 +250,8 @@ void RadioView::UpdateValue(int index, int value)
             if (value > 8) value = 8;
             break;
         case RADIO_ITEM_CQL:
-            if (value < 0) value = 0;
-            if (value > 8) value = 8;
+            if (value < 1) value = 1;
+            if (value > 8) value = 8; // Squelch is 1-8
             break;
         // RSSI 是只讀的，不修改
         case RADIO_ITEM_RSSI:
@@ -255,6 +267,13 @@ int RadioView::GetValue(int index)
     if (index < 0 || index >= RADIO_ITEM_COUNT) return 0;
     return values[index];
 }
+
+int RadioView::GetSelected() { return selectedIndex; }
+
+int RadioView::GetItemCount() { return RADIO_ITEM_COUNT; }
+
+bool RadioView::IsEditMode() { return isEditMode; }
+bool RadioView::IsInFuncArea() { return inFuncArea; }
 
 void RadioView::Delete()
 {

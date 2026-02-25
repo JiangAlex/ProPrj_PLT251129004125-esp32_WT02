@@ -34,11 +34,11 @@ void HAL::HAL_Init(void)
     HAL::Clock_Init();  // 初始化時鐘
     // Power_Init();  // TODO: Implement Power_Init()
     HAL::SA818_Init();  // Enable SA818/DRA818 for testing
-    //HAL::PTT_Init();    // Initialize PTT (Push To Talk)
+    HAL::PTT_Init();    // Initialize PTT (Push To Talk)
 
     // Optional modules
-    // Buzz_init();
-    // Audio_Init();
+    // Buzz_init(); // Still not implemented
+    Audio_Init();
     // Encoder_Init();
 
     // Create HAL update task
@@ -61,6 +61,8 @@ void HAL::HAL_Update(void)
     //__IntervalExecute(HAL::IMU_Update(), 200);
     //__IntervalExecute(HAL::MAG_Update(), 50);
     __IntervalExecute(HAL::Power_Update(), 500); 
+    __IntervalExecute(HAL::SA818_Update(), 1000); // Periodically get RSSI
+    __IntervalExecute(HAL::PTT_Update(), 20);     // Check PTT button state
     //__IntervalExecute(HAL::WiFi_Update(), 100);
     //__IntervalExecute(HAL::GPS_Update(), 500);
     //__IntervalExecute(HAL::ENV_Update(), 100);

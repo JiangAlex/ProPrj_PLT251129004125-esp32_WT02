@@ -89,8 +89,15 @@ void Startup::onViewDidUnload()
 void Startup::onTimer(lv_timer_t *timer)
 {
     Startup *instance = (Startup *)timer->user_data;
-    static bool lastUp = true, lastDown = true, lastOk = true;
-    static unsigned long lastPressTime = 0;
+    
+    // 使用獨立的狀態變數與計時器，避免按鍵互相干擾
+    static bool lastUp = true;
+    static bool lastDown = true;
+    static bool lastOk = true;
+    
+    static unsigned long lastTimeUp = 0;
+    static unsigned long lastTimeDown = 0;
+    static unsigned long lastTimeOk = 0;
     
     bool curUp = digitalRead(BTN_UP);
     bool curDown = digitalRead(BTN_DOWN);
@@ -98,63 +105,61 @@ void Startup::onTimer(lv_timer_t *timer)
     
     unsigned long now = millis();
     
-    // 防抖：至少間隔 200ms
-    if (now - lastPressTime < 200) {
-        lastUp = curUp;
-        lastDown = curDown;
-        lastOk = curOk;
-        return;
-    }
-    
-    // UP 按鍵（下降沿觸發）
-    if (lastUp && !curUp) {
-        int sel = instance->View.GetSelected();
-        if (sel > 0) {
-            instance->View.SetSelected(sel - 1);
-            Serial.printf("[Menu] UP -> %d\n", sel - 1);
+    // UP 按鍵
+    if (now - lastTimeUp > 200) {
+        if (lastUp && !curUp) { // Falling edge
+            int sel = instance->View.GetSelected();
+            if (sel > 0) {
+                instance->View.SetSelected(sel - 1);
+                Serial.printf("[Menu] UP -> %d\n", sel - 1);
+            }
+            lastTimeUp = now;
         }
-        lastPressTime = now;
     }
+    lastUp = curUp;
     
     // DOWN 按鍵
-    if (lastDown && !curDown) {
-        int sel = instance->View.GetSelected();
-        if (sel < instance->View.GetMenuCount() - 1) {
-            instance->View.SetSelected(sel + 1);
-            Serial.printf("[Menu] DOWN -> %d\n", sel + 1);
+    // 注意: GPIO 34 沒有內部上拉電阻，若無外部上拉可能會浮動導致誤觸發或卡死
+    if (now - lastTimeDown > 200) {
+        if (lastDown && !curDown) { // Falling edge
+            int sel = instance->View.GetSelected();
+            if (sel < instance->View.GetMenuCount() - 1) {
+                instance->View.SetSelected(sel + 1);
+                Serial.printf("[Menu] DOWN -> %d\n", sel + 1);
+            }
+            lastTimeDown = now;
         }
-        lastPressTime = now;
     }
+    lastDown = curDown;
     
     // OK 按鍵
-    if (lastOk && !curOk) {
-        int sel = instance->View.GetSelected();
-        Serial.printf("[Menu] OK pressed, selected: %d\n", sel);
-        
-        // 根據選擇跳轉頁面
-        switch (sel) {
-            case 0:  // Trekking
-                Serial.println("[Menu] -> Trekking");
-                // instance->_Manager->Push("Pages/Trekking");
-                break;
-            case 1:  // Radio
-                Serial.println("[Menu] -> Radio");
-                instance->Manager->Push("Pages/Radio");
-                break;
-            case 2:  // System
-                Serial.println("[Menu] -> System");
-                // instance->_Manager->Push("Pages/System");
-                break;
-            case 3:  // Status
-                Serial.println("[Menu] -> Status");
-                // instance->_Manager->Push("Pages/Status");
-                break;
+    if (now - lastTimeOk > 200) {
+        if (lastOk && !curOk) { // Falling edge
+            int sel = instance->View.GetSelected();
+            Serial.printf("[Menu] OK pressed, selected: %d\n", sel);
+            
+            // 根據選擇跳轉頁面
+            switch (sel) {
+                case 0:  // Trekking
+                    Serial.println("[Menu] -> Trekking");
+                    // instance->_Manager->Push("Pages/Trekking");
+                    break;
+                case 1:  // Radio
+                    Serial.println("[Menu] -> Radio");
+                    instance->Manager->Push("Pages/Radio");
+                    break;
+                case 2:  // System
+                    Serial.println("[Menu] -> System");
+                    // instance->_Manager->Push("Pages/System");
+                    break;
+                case 3:  // Status
+                    Serial.println("[Menu] -> Status");
+                    // instance->_Manager->Push("Pages/Status");
+                    break;
+            }
+            lastTimeOk = now;
         }
-        lastPressTime = now;
     }
-    
-    lastUp = curUp;
-    lastDown = curDown;
     lastOk = curOk;
 }
 

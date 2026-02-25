@@ -19,6 +19,6 @@ void HAL::MicroAPRS_Update() {
 	Serial.println("HAL: MicroAPRS update");
 }
 
-static void taskAPRS(void *pvParameters) {
+void HAL::taskAPRS(void *pvParameters) {
     Serial.println("Task <APRS> started");
 }

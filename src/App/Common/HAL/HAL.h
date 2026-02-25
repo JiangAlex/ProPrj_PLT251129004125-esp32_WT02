@@ -172,7 +172,7 @@ namespace HAL
 
     /* SA818 */
     void SA818_Init();
-    void SA818_scan();
+    void SA818_Update();
     void SA818_GetInfo(::SA818_Info_t* info);
     
     /* SA818 Control Pins */
@@ -205,6 +205,7 @@ namespace HAL
     /* PTT (Push To Talk) */
     void PTT_Init();
     bool PTT_IsPressed();
+    void PTT_Update();
     void PTT_SetTransmit(bool enable);
 
     /* U8g2 */

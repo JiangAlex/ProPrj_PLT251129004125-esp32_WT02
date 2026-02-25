@@ -27,12 +27,13 @@ void Radio::onViewLoad()
     View.Create(root);
     
     // 從 Model 初始化 View 的數值
-    View.UpdateValue(RADIO_ITEM_CH, Model.GetChannel());
-    View.UpdateValue(RADIO_ITEM_CTCSS, Model.GetCTCSSIndex());
-    View.UpdateValue(RADIO_ITEM_POWER, Model.IsHighPower() ? 1 : 0);
-    View.UpdateValue(RADIO_ITEM_RSSI, Model.GetRSSI());
-    View.UpdateValue(RADIO_ITEM_VOL, Model.GetVolume());
-    View.UpdateValue(RADIO_ITEM_CQL, Model.GetSquelch());
+    View.UpdateValue(RadioView::RADIO_ITEM_CH, Model.GetChannel());
+    View.UpdateFrequency(Model.GetFrequency());
+    View.UpdateValue(RadioView::RADIO_ITEM_CTCSS, Model.GetCTCSSIndex());
+    View.UpdateValue(RadioView::RADIO_ITEM_POWER, Model.IsHighPower() ? 1 : 0);
+    View.UpdateValue(RadioView::RADIO_ITEM_RSSI, Model.GetRSSI());
+    View.UpdateValue(RadioView::RADIO_ITEM_VOL, Model.GetVolume());
+    View.UpdateValue(RadioView::RADIO_ITEM_CQL, Model.GetSquelch()); // CQL is SQ
     
     Serial.printf("[Radio] Loaded SA818: CH=%d, Freq=%.4f MHz, Power=%s, Vol=%d\n",
                   Model.GetChannel(), Model.GetFrequency(),
@@ -44,7 +45,7 @@ void Radio::onViewLoad()
     pinMode(RADIO_BTN_OK, INPUT_PULLUP);
     
     // 創建定時器檢查按鍵
-    btnTimer = lv_timer_create(onTimer, 100, this);  // 每 100ms 檢查一次
+    btnTimer = lv_timer_create(onTimer, 50, this);  // Check every 50ms for responsiveness
 }
 
 void Radio::onViewDidLoad()
@@ -89,7 +90,7 @@ void Radio::onViewUnload()
     // Timer 清理已移到 onViewWillDisappear
     View.Delete();
     Serial.println("[Radio] onViewUnload");
-    Model.DeInit();
+    Model.Deinit();
 }
 
 void Radio::onViewDidUnload()
@@ -103,6 +104,20 @@ void Radio::onTimer(lv_timer_t *timer)
     if (!instance) return;
     
     uint32_t now = millis();
+
+    // Update view if model data has changed (e.g. from DataProc)
+    if (instance->Model.IsDirty()) {
+        SA818_Info_t info;
+        instance->Model.GetSA818Info(&info);
+        instance->View.UpdateValue(RadioView::RADIO_ITEM_CH, info.channel);
+        instance->View.UpdateFrequency(info.freq_rx);
+        instance->View.UpdateValue(RadioView::RADIO_ITEM_CTCSS, info.ctcss_rx);
+        instance->View.UpdateValue(RadioView::RADIO_ITEM_POWER, HAL::SA818_GetPowerMode() == SA818_HIGH_POWER ? 1 : 0);
+        instance->View.UpdateValue(RadioView::RADIO_ITEM_RSSI, info.rssi);
+        instance->View.UpdateValue(RadioView::RADIO_ITEM_VOL, info.volume);
+        instance->View.UpdateValue(RadioView::RADIO_ITEM_CQL, info.squelch);
+        instance->Model.ClearDirty();
+    }
     
     // 防抖檢查
     if (now - instance->lastBtnTime < instance->DEBOUNCE_MS) {
@@ -144,7 +159,7 @@ void Radio::handleButtonUp()
     if (View.IsInFuncArea()) {
         // 在功能區，UP 返回資訊區最後一項（CQL）
         View.ExitFuncArea();
-        View.SetSelected(RADIO_ITEM_CQL);
+        View.SetSelected(RadioView::RADIO_ITEM_CQL);
     }
     else if (View.IsEditMode()) {
         // 編輯模式：增加數值並同步到 Model
@@ -153,32 +168,34 @@ void Radio::handleButtonUp()
         int newVal = val;
         
         switch (idx) {
-            case RADIO_ITEM_CH:
+            case RadioView::RADIO_ITEM_CH:
                 newVal = val + 1;
                 if (newVal > 20) newVal = 20;
                 View.UpdateValue(idx, newVal);
                 Model.SetChannel(newVal);
+                View.UpdateFrequency(Model.GetFrequencyFor(newVal, View.GetValue(RadioView::RADIO_ITEM_POWER) == 1));
                 break;
-            case RADIO_ITEM_CTCSS:
+            case RadioView::RADIO_ITEM_CTCSS:
                 newVal = val + 1;
-                if (newVal > 38) newVal = 38;  // 最大 38
+                if (newVal > 38) newVal = 0;  // Wrap around, 0 is OFF
                 View.UpdateValue(idx, newVal);
                 Model.SetCTCSSIndex(newVal);
                 break;
-            case RADIO_ITEM_POWER:
+            case RadioView::RADIO_ITEM_POWER:
                 newVal = 1;  // HIGH
                 View.UpdateValue(idx, newVal);
                 Model.SetHighPower(true);
+                View.UpdateFrequency(Model.GetFrequencyFor(View.GetValue(RadioView::RADIO_ITEM_CH), true));
                 break;
-            case RADIO_ITEM_VOL:
+            case RadioView::RADIO_ITEM_VOL:
                 newVal = val + 1;
                 if (newVal > 8) newVal = 8;
                 View.UpdateValue(idx, newVal);
                 Model.SetVolume(newVal);
                 break;
-            case RADIO_ITEM_CQL:
+            case RadioView::RADIO_ITEM_CQL:
                 newVal = val + 1;
-                if (newVal > 8) newVal = 8;
+                if (newVal > 8) newVal = 1; // Wrap around
                 View.UpdateValue(idx, newVal);
                 Model.SetSquelch(newVal);
                 break;
@@ -200,7 +217,10 @@ void Radio::handleButtonDown()
     Serial.println("[Radio] BTN_DOWN pressed");
     
     if (View.IsInFuncArea()) {
-        // 已在功能區底部，無法再向下
+        // 在功能區切換 SCAN / BACK
+        int current = View.GetFuncSelected();
+        int next = (current == RadioView::RADIO_FUNC_SCAN) ? RadioView::RADIO_FUNC_BACK : RadioView::RADIO_FUNC_SCAN;
+        View.SetFuncSelected(next);
     }
     else if (View.IsEditMode()) {
         // 編輯模式：減少數值並同步到 Model
@@ -209,32 +229,34 @@ void Radio::handleButtonDown()
         int newVal = val;
         
         switch (idx) {
-            case RADIO_ITEM_CH:
+            case RadioView::RADIO_ITEM_CH:
                 newVal = val - 1;
                 if (newVal < 1) newVal = 1;
                 View.UpdateValue(idx, newVal);
                 Model.SetChannel(newVal);
+                View.UpdateFrequency(Model.GetFrequencyFor(newVal, View.GetValue(RadioView::RADIO_ITEM_POWER) == 1));
                 break;
-            case RADIO_ITEM_CTCSS:
+            case RadioView::RADIO_ITEM_CTCSS:
                 newVal = val - 1;
-                if (newVal < 0) newVal = 0;  // 最小 0 (OFF)
+                if (newVal < 0) newVal = 38;  // Wrap around
                 View.UpdateValue(idx, newVal);
                 Model.SetCTCSSIndex(newVal);
                 break;
-            case RADIO_ITEM_POWER:
+            case RadioView::RADIO_ITEM_POWER:
                 newVal = 0;  // LOW
                 View.UpdateValue(idx, newVal);
                 Model.SetHighPower(false);
+                View.UpdateFrequency(Model.GetFrequencyFor(View.GetValue(RadioView::RADIO_ITEM_CH), false));
                 break;
-            case RADIO_ITEM_VOL:
+            case RadioView::RADIO_ITEM_VOL:
                 newVal = val - 1;
                 if (newVal < 1) newVal = 1;
                 View.UpdateValue(idx, newVal);
                 Model.SetVolume(newVal);
                 break;
-            case RADIO_ITEM_CQL:
+            case RadioView::RADIO_ITEM_CQL:
                 newVal = val - 1;
-                if (newVal < 0) newVal = 0;
+                if (newVal < 1) newVal = 8; // Wrap around
                 View.UpdateValue(idx, newVal);
                 Model.SetSquelch(newVal);
                 break;
@@ -248,7 +270,7 @@ void Radio::handleButtonDown()
         if (idx < View.GetItemCount() - 1) {
             View.SetSelected(idx + 1);
         }
-        else if (idx == RADIO_ITEM_CQL) {
+        else if (idx == RadioView::RADIO_ITEM_CQL) {
             // 在 CQL（最後一項），按 DOWN 進入功能區
             View.EnterFuncArea();
         }
@@ -260,9 +282,14 @@ void Radio::handleButtonOK()
     Serial.println("[Radio] BTN_OK pressed");
     
     if (View.IsInFuncArea()) {
-        // 在功能區按 OK
-        Serial.println("[Radio] BACK selected, returning to StartUp");
-        Manager->Pop();
+        int func = View.GetFuncSelected();
+        if (func == RadioView::RADIO_FUNC_BACK) {
+            Serial.println("[Radio] BACK selected, returning to StartUp");
+            Manager->Pop();
+        } else if (func == RadioView::RADIO_FUNC_SCAN) {
+            Serial.println("[Radio] SCAN selected (Not implemented yet)");
+            // TODO: Start Scan
+        }
     }
     else if (View.IsEditMode()) {
         // 退出編輯模式，進入導航模式
@@ -274,7 +301,7 @@ void Radio::handleButtonOK()
         int idx = View.GetSelected();
         
         // RSSI 是只讀的，不能編輯
-        if (idx == RADIO_ITEM_RSSI) {
+        if (idx == RadioView::RADIO_ITEM_RSSI) {
             Serial.println("[Radio] RSSI is read-only");
             return;
         }
