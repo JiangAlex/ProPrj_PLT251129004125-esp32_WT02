@@ -33,6 +33,8 @@ public:
 private:
     static void onTimer(lv_timer_t* timer);
     static void onEvent(lv_event_t* event);
+    static void onScanTimer(lv_timer_t* timer);
+    void StopScanning();
     
     // 按鍵處理
     void handleButtonUp();
@@ -45,6 +47,7 @@ private:
     
     // 定時器
     lv_timer_t* btnTimer = nullptr;
+    lv_timer_t* scanTimer = nullptr;
     
     // 按鍵防抖
     uint32_t lastBtnTime = 0;

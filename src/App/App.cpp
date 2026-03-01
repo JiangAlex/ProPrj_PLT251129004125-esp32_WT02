@@ -63,6 +63,9 @@ void App_Init()
     /* Initialize pages first */
     manager.Install("Startup", "Pages/Startup");
     manager.Install("Radio", "Pages/Radio");
+    manager.Install("Trekking", "Pages/Trekking");
+    manager.Install("System", "Pages/System");
+    manager.Install("Status", "Pages/Status");
     //manager.Install("SystemInfos", "Pages/SystemInfos");
     //manager.Install("Settings", "Pages/Settings");
     manager.SetGlobalLoadAnimType(PageManager::LOAD_ANIM_OVER_TOP,500);

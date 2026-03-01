@@ -25,6 +25,8 @@ const int RadioView::ctcssCount = sizeof(ctcssTable) / sizeof(ctcssTable[0]);
 
 void RadioView::Create(lv_obj_t *root)
 {   
+    lv_obj_clean(root); // 清除 root 內的所有物件，確保頁面乾淨
+
     // 強制更新佈局
     // lv_obj_update_layout(root); // Not needed here
     Serial.printf("[RadioView] root size: %d x %d\n", lv_obj_get_width(root), lv_obj_get_height(root));
@@ -36,6 +38,7 @@ void RadioView::Create(lv_obj_t *root)
     funcSelectedIndex = 0;
     isEditMode = false;
     inFuncArea = false;
+    isScanning = false;
     
     current_frequency = 0.0f;
     // 初始值
@@ -48,24 +51,24 @@ void RadioView::Create(lv_obj_t *root)
 
     // 設置 root 樣式：黑色背景
     lv_obj_remove_style_all(root);
-    lv_obj_set_size(root, 128, 48);  // Total height 48px (38px info area + 10px func area)
+    lv_obj_set_size(root, 128, 48);  // Total height 48px (34px info area + 14px func area)
     lv_obj_set_pos(root, 0, 16);     // StatusBar 下方
     lv_obj_set_style_bg_color(root, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(root, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(root, 0, 0);
     lv_obj_set_style_pad_all(root, 0, 0);
 
-    // ========== 主資訊區域 (38px) ==========
+    // ========== 主資訊區域 (34px) ==========
     lv_obj_t* infoList = lv_obj_create(root);
     lv_obj_remove_style_all(infoList);
-    lv_obj_set_size(infoList, 128, 38);
+    lv_obj_set_size(infoList, 128, 34);
     lv_obj_set_pos(infoList, 0, 0);
     lv_obj_set_style_bg_opa(infoList, LV_OPA_TRANSP, 0);
     lv_obj_set_style_pad_all(infoList, 0, 0);
     lv_obj_set_flex_flow(infoList, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(infoList, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
     lv_obj_set_scroll_dir(infoList, LV_DIR_VER);
-    lv_obj_set_scroll_snap_y(infoList, LV_SCROLL_SNAP_CENTER);
+    lv_obj_set_scroll_snap_y(infoList, LV_SCROLL_SNAP_START);
     lv_obj_set_scrollbar_mode(infoList, LV_SCROLLBAR_MODE_OFF);  // 隱藏滾動條但保持滾動功能
     ui.infoList = infoList;
     ui.cont = infoList;
@@ -89,8 +92,8 @@ void RadioView::Create(lv_obj_t *root)
     // ========== 功能提示區 (10px) ==========
     lv_obj_t* funcBar = lv_obj_create(root);
     lv_obj_remove_style_all(funcBar);
-    lv_obj_set_size(funcBar, 128, 10);
-    lv_obj_set_pos(funcBar, 0, 38);
+    lv_obj_set_size(funcBar, 128, 14);
+    lv_obj_set_pos(funcBar, 0, 34);
     lv_obj_set_style_bg_opa(funcBar, LV_OPA_TRANSP, 0);
     ui.funcBar = funcBar;
 
@@ -167,7 +170,10 @@ void RadioView::UpdateDisplay()
     }
     
     // 更新功能區
-    if (inFuncArea) {
+    if (isScanning) {
+        lv_label_set_text(ui.funcLabel, "  [STOP]   Scanning...");
+    }
+    else if (inFuncArea) {
         if (funcSelectedIndex == RADIO_FUNC_SCAN) {
             lv_label_set_text(ui.funcLabel, "> [SCAN]   [BACK]");
         } else {
@@ -178,7 +184,7 @@ void RadioView::UpdateDisplay()
     }
 }
 
-void RadioView::SetSelected(int index)
+void RadioView::SetSelected(int index)  // 設置選中項目，並滾動到該項目
 {
     if (index < 0) index = 0;
     if (index >= RADIO_ITEM_COUNT) index = RADIO_ITEM_COUNT - 1;
@@ -197,6 +203,12 @@ void RadioView::SetSelected(int index)
 void RadioView::SetEditMode(bool enable)
 {
     isEditMode = enable;
+    UpdateDisplay();
+}
+
+void RadioView::SetScanning(bool scanning)
+{
+    isScanning = scanning;
     UpdateDisplay();
 }
 

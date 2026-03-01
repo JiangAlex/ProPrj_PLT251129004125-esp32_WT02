@@ -13,6 +13,9 @@ const char* StartupView::menuTexts[4] = {
 
 void StartupView::Create(lv_obj_t *root)
 {   
+    // 清除 root 內的所有物件，避免重複創建導致顯示異常
+    lv_obj_clean(root);
+
     // 強制更新佈局
     lv_obj_update_layout(root);
     Serial.printf("[StartupView] root size: %d x %d\n", lv_obj_get_width(root), lv_obj_get_height(root));
@@ -24,7 +27,7 @@ void StartupView::Create(lv_obj_t *root)
 
     // 設置 root 樣式：黑色背景
     lv_obj_remove_style_all(root);
-    lv_obj_set_size(root, 128, 48);  // 總高度 48px（38px 菜單 + 10px 底部）
+    lv_obj_set_size(root, 128, 48);  // 總高度 48px（34px 菜單 + 14px 底部）
     lv_obj_set_pos(root, 0, 16);     // StatusBar 下方
     lv_obj_set_style_bg_color(root, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(root, LV_OPA_COVER, 0);
@@ -34,14 +37,14 @@ void StartupView::Create(lv_obj_t *root)
     // ========== 主菜單區域 (38px) ==========
     lv_obj_t* menuList = lv_obj_create(root);
     lv_obj_remove_style_all(menuList);
-    lv_obj_set_size(menuList, 128, 38);
+    lv_obj_set_size(menuList, 128, 34);
     lv_obj_set_pos(menuList, 0, 0);
     lv_obj_set_style_bg_opa(menuList, LV_OPA_TRANSP, 0);
     lv_obj_set_style_pad_all(menuList, 0, 0);
     lv_obj_set_flex_flow(menuList, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_align(menuList, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
     lv_obj_set_scroll_dir(menuList, LV_DIR_VER);
-    lv_obj_set_scroll_snap_y(menuList, LV_SCROLL_SNAP_CENTER);
+    lv_obj_set_scroll_snap_y(menuList, LV_SCROLL_SNAP_START);
     ui.menuList = menuList;
     ui.cont = menuList;
 
@@ -64,8 +67,8 @@ void StartupView::Create(lv_obj_t *root)
     // ========== 底部提示區 (10px) ==========
     lv_obj_t* bottomBar = lv_obj_create(root);
     lv_obj_remove_style_all(bottomBar);
-    lv_obj_set_size(bottomBar, 128, 10);
-    lv_obj_set_pos(bottomBar, 0, 38);
+    lv_obj_set_size(bottomBar, 128, 14);
+    lv_obj_set_pos(bottomBar, 0, 34);
     lv_obj_set_style_bg_opa(bottomBar, LV_OPA_TRANSP, 0);
     ui.bottomBar = bottomBar;
 
@@ -73,7 +76,7 @@ void StartupView::Create(lv_obj_t *root)
     lv_obj_set_style_text_font(dateLabel, &lv_font_unscii_8, 0);
     lv_obj_set_style_text_color(dateLabel, lv_color_white(), 0);
     lv_label_set_text(dateLabel, "SAT 12/17");
-    lv_obj_align(dateLabel, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_align(dateLabel, LV_ALIGN_BOTTOM_MID, 0, -2); // Align to bottom middle with a small offset
     ui.dateLabel = dateLabel;
 
     // 設置初始選中項目
@@ -103,7 +106,7 @@ void StartupView::SetSelected(int index)
     selectedIndex = index;
     
     // 滾動到選中項目 - 使用 LV_ANIM_OFF 避免動畫在頁面卸載後崩潰
-    lv_obj_scroll_to_view(ui.menuItems[index], LV_ANIM_ON);
+    lv_obj_scroll_to_view(ui.menuItems[index], LV_ANIM_OFF);
 }
 
 void StartupView::Delete()

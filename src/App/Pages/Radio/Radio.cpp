@@ -2,12 +2,51 @@
 
 using namespace Page;
 
+void Radio::StopScanning() {
+    if (scanTimer) {
+        lv_timer_del(scanTimer);
+        scanTimer = nullptr;
+    }
+    View.SetScanning(false);
+    Serial.println("[Radio] Scanning stopped");
+}
+
+void Radio::onScanTimer(lv_timer_t* timer) {
+    Radio* instance = (Radio*)timer->user_data;
+    
+    // 1. 強制更新 RSSI (從硬體讀取)
+    HAL::SA818_Update();
+    
+    // 2. 檢查當前頻道的 RSSI
+    int rssi = instance->Model.GetRSSI();
+    // Serial.printf("[Radio] Scan: CH %d, RSSI %d\n", instance->Model.GetChannel(), rssi);
+
+    if (rssi > -90) {
+        // 訊號夠強，停止掃描
+        instance->StopScanning();
+        return;
+    }
+    
+    // 3. 切換到下一個頻道
+    int ch = instance->Model.GetChannel();
+    ch++;
+    if (ch > 20) ch = 1; // 假設最大 20 個頻道
+    
+    instance->Model.SetChannel(ch);
+    
+    // 即時更新 UI 顯示
+    instance->View.UpdateValue(RadioView::RADIO_ITEM_CH, ch);
+    instance->View.UpdateFrequency(instance->Model.GetFrequencyFor(ch, instance->Model.IsHighPower()));
+    // 注意：切換頻道後需要一點時間讓 PLL 鎖定和 RSSI 穩定，下一次 timer tick (200ms後) 再檢查 RSSI
+}
+
 Radio::Radio()
 {
     lastBtnTime = 0;
     lastBtnUp = true;
     lastBtnDown = true;
     lastBtnOK = true;
+    scanTimer = nullptr;
 }
 
 Radio::~Radio()
@@ -77,6 +116,11 @@ void Radio::onViewWillDisappear()
         btnTimer = nullptr;
         Serial.println("[Radio] Timer deleted");
     }
+    
+    // 離開頁面時停止掃描
+    if (scanTimer) {
+        StopScanning();
+    }
 }
 
 void Radio::onViewDidDisappear()
@@ -128,6 +172,23 @@ void Radio::onTimer(lv_timer_t *timer)
     bool btnUp = digitalRead(RADIO_BTN_UP);
     bool btnDown = digitalRead(RADIO_BTN_DOWN);
     bool btnOK = digitalRead(RADIO_BTN_OK);
+    
+    // 如果正在掃描，按下任意鍵停止掃描
+    if (instance->scanTimer != nullptr) {
+        if ((instance->lastBtnUp && !btnUp) || 
+            (instance->lastBtnDown && !btnDown) || 
+            (instance->lastBtnOK && !btnOK)) {
+            
+            instance->StopScanning();
+            instance->lastBtnTime = now;
+            
+            // 更新按鍵狀態，消耗掉這次按鍵事件
+            instance->lastBtnUp = btnUp;
+            instance->lastBtnDown = btnDown;
+            instance->lastBtnOK = btnOK;
+            return;
+        }
+    }
     
     // 檢測按鍵下降沿（從高到低）
     if (instance->lastBtnUp && !btnUp) {
@@ -287,8 +348,15 @@ void Radio::handleButtonOK()
             Serial.println("[Radio] BACK selected, returning to StartUp");
             Manager->Pop();
         } else if (func == RadioView::RADIO_FUNC_SCAN) {
-            Serial.println("[Radio] SCAN selected (Not implemented yet)");
-            // TODO: Start Scan
+            if (scanTimer == nullptr) {
+                Serial.println("[Radio] Starting scan...");
+                View.SetScanning(true);
+                // 創建 200ms 的掃描定時器
+                scanTimer = lv_timer_create(onScanTimer, 200, this);
+            } else {
+                // 如果已經在掃描，再次按下則停止
+                StopScanning();
+            }
         }
     }
     else if (View.IsEditMode()) {

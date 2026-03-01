@@ -50,6 +50,7 @@ public:
 
     void SetEditMode(bool enable);
     bool IsEditMode();
+    void SetScanning(bool scanning);
 
     void EnterFuncArea();
     void ExitFuncArea();
@@ -67,6 +68,7 @@ private:
     int funcSelectedIndex;
     bool isEditMode;
     bool inFuncArea;
+    bool isScanning;
     int values[RADIO_ITEM_COUNT];
     float current_frequency;
 };

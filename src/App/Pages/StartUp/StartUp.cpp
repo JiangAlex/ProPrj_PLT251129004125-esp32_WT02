@@ -142,7 +142,7 @@ void Startup::onTimer(lv_timer_t *timer)
             switch (sel) {
                 case 0:  // Trekking
                     Serial.println("[Menu] -> Trekking");
-                    // instance->_Manager->Push("Pages/Trekking");
+                    instance->Manager->Push("Pages/Trekking");
                     break;
                 case 1:  // Radio
                     Serial.println("[Menu] -> Radio");
@@ -150,11 +150,11 @@ void Startup::onTimer(lv_timer_t *timer)
                     break;
                 case 2:  // System
                     Serial.println("[Menu] -> System");
-                    // instance->_Manager->Push("Pages/System");
+                    instance->Manager->Push("Pages/System");
                     break;
                 case 3:  // Status
                     Serial.println("[Menu] -> Status");
-                    // instance->_Manager->Push("Pages/Status");
+                    instance->Manager->Push("Pages/Status");
                     break;
             }
             lastTimeOk = now;
@@ -165,17 +165,5 @@ void Startup::onTimer(lv_timer_t *timer)
 
 void Startup::onEvent(lv_event_t *event)
 {
-    Startup *instance = (Startup *)lv_event_get_user_data(event);
-    LV_ASSERT_NULL(instance);
-
-    lv_obj_t *obj = lv_event_get_current_target(event);
-    lv_event_code_t code = lv_event_get_code(event);
-
-    if (obj == instance->root)
-    {
-        if (code == LV_EVENT_LEAVE)
-        {
-            // instance->Manager->Pop();
-        }
-    }
+    LV_UNUSED(event);
 }
