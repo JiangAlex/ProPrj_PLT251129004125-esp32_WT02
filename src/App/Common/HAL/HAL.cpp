@@ -63,6 +63,7 @@ void HAL::HAL_Update(void)
     __IntervalExecute(HAL::Power_Update(), 500); 
     __IntervalExecute(HAL::SA818_Update(), 1000); // Periodically get RSSI
     __IntervalExecute(HAL::PTT_Update(), 20);     // Check PTT button state
+    __IntervalExecute(HAL::Button_CheckLongPress(), 100);  // Check for 3-second long press (100ms polling)
     //__IntervalExecute(HAL::WiFi_Update(), 100);
     //__IntervalExecute(HAL::GPS_Update(), 500);
     //__IntervalExecute(HAL::ENV_Update(), 100);

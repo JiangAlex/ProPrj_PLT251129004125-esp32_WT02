@@ -1,4 +1,9 @@
 #include "HAL.h"
+#include "App/Utils/PageManager/PageManager.h"
+#include <Arduino.h>
+
+static uint32_t buttonPressStartTime[3] = {0, 0, 0};  // Track when each button was pressed
+static bool buttonLongPressTriggered[3] = {false, false, false};  // Prevent repeat triggers
 
 void HAL::Button_Init()
 {
@@ -7,6 +12,12 @@ void HAL::Button_Init()
     pinMode(CONFIG_UP_BACK_PIN, INPUT_PULLUP);
     pinMode(CONFIG_DOWN_FN_PIN, INPUT_PULLUP);
     pinMode(CONFIG_PTT_PIN, INPUT_PULLUP);
+    
+    // Initialize tracking arrays
+    for (int i = 0; i < 3; i++) {
+        buttonPressStartTime[i] = 0;
+        buttonLongPressTriggered[i] = false;
+    }
 }
 
 void HAL::Button_Update()
@@ -70,4 +81,41 @@ void HAL::Button_HandleEvents()
 {
     // 這個函數可以用來處理按鈕事件
     // 這裡僅作為示例，實際實現需要根據硬體設計
+}
+
+void HAL::Button_CheckLongPress()
+{
+    constexpr uint32_t LONG_PRESS_DURATION_MS = 3000;  // 3 seconds
+    
+    for (int i = 0; i < 3; i++) {
+        bool isPressed = HAL::Button_IsPressed(i);
+        
+        if (isPressed && !buttonLongPressTriggered[i]) {
+            // Button is pressed and hasn't triggered yet
+            if (buttonPressStartTime[i] == 0) {
+                // Start tracking press time
+                buttonPressStartTime[i] = millis();
+            } else {
+                // Check if long press duration has been reached
+                uint32_t elapsed = millis() - buttonPressStartTime[i];
+                if (elapsed >= LONG_PRESS_DURATION_MS) {
+                    // Long press detected - trigger navigation to Startup
+                    buttonLongPressTriggered[i] = true;
+                    
+                    Serial.printf("Button %d: Long press detected, navigating to Startup\n", i);
+                    
+                    // Play beep confirmation
+                    HAL::Buzzer_Beep(1000, 100);
+                    
+                    // Navigate to Startup page
+                    PageManager::GetInstance()->Pop();
+                    PageManager::GetInstance()->Push("Pages/Startup");
+                }
+            }
+        } else if (!isPressed) {
+            // Button released - reset tracking
+            buttonPressStartTime[i] = 0;
+            buttonLongPressTriggered[i] = false;
+        }
+    }
 }

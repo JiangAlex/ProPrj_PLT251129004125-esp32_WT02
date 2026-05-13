@@ -8,7 +8,7 @@ ESP32 + SA818 雙向手持對講機 + GPS 追蹤器（LVGL UI）
 |------|-----------|
 | 主控 | ESP32（ESP32-Dev board） |
 | 螢幕 | SSD1306 128×64 OLED（I2C） |
-| 對講機模組 | SA818 UHF/VHF FM Transceiver |
+| 對講機模組 | SA818 VHF FM Transceiver |
 | 感測器 | IMU（慣性測量）、MAG（磁力計）、GPS |
 | 音訊 | 蜂鳴器 Buzzer、Audio PA |
 | 按鍵 | 3 鍵：MENU/OK(GPIO32)、UP/BACK(GPIO33)、DOWN/FN(GPIO34) |
@@ -153,12 +153,11 @@ build_flags =
 
 ## 待研究/待完成
 
-- [ ] `monthly_revenue_tpex` 自動化（TPEx 日線為 HTML 404，需研究替代方案）
-- [ ] LVGL `lv_indev_set_group` 目前被註解
 - [ ] SD 卡功能（HAL 中 SD 模組預留）
 - [ ] BLE HID 鍵盤/滑鼠功能
 - [ ] MicroAPRS APRS 追蹤功能
-- [ ] `USE_TEST` 模式下 `Test_App` 具體行為
+- [ ] `USE_TEST` 模式具體行為
+- [ ] Trekking/Status 頁面感測器整合（GPS、IMU、MAG、BME280）
 
 ## Git
 

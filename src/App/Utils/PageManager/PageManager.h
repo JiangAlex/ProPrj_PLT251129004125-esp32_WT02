@@ -31,6 +31,10 @@
 class PageManager
 {
 public:
+    static PageManager* GetInstance();  // Singleton accessor
+    static void SetInstance(PageManager* inst);  // For registration
+
+public:
 
     /* Page switching animation type  */
     typedef enum
@@ -184,6 +188,9 @@ private:
     }
 
 private:
+
+    /* Singleton */
+    static PageManager* s_instance;
 
     /* Page factory */
     PageFactory* Factory;

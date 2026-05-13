@@ -113,6 +113,7 @@ namespace HAL
     double GPS_GetDistanceOffset(::GPS_Info_t *info, double preLong, double preLat);
 
     /* Buzzer */
+    void Buzzer_Beep(uint16_t freq_hz, uint32_t duration_ms);
 
     /* Button */
     void Button_Init();
@@ -122,6 +123,7 @@ namespace HAL
     bool Button_IsHold(uint8_t buttonIndex);
     void Button_GetInfo(uint8_t buttonIndex, ::Button_Info_t *info);
     void Button_HandleEvents();
+    void Button_CheckLongPress();
     
     /* Button Index */
     enum ButtonIndex {

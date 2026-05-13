@@ -21,30 +21,19 @@ using namespace Page;
         info.cmd = DataProc::CMD;                                          \
         DataProc::Center()->AccountMain.Notify(#ACT, &info, sizeof(info)); \
     } while (0)
-//extern lv_indev_t *indev_touchpad;
 
 void App_Init()
 {
     static AppFactory factory;
     static PageManager manager(&factory);
 
-    /* Make sure the default group exists */
-    if (!lv_group_get_default())
-    {
-        lv_group_t *group = lv_group_create();
-        lv_group_set_default(group);
-        //lv_indev_set_group(indev_touchpad, group);
-    }
-
     /* Initialize the data processing node */
-    // Initialize DataProc System after LVGL (requires lv_mem_alloc)
     Serial.print("Free heap before DataProc init: ");
     Serial.println(ESP.getFreeHeap());
     DataProc_Init();
     Serial.print("Free heap after DataProc init: ");
     Serial.println(ESP.getFreeHeap());
 
-    //ACCOUNT_SEND_CMD(Storage, STORAGE_CMD_LOAD);
     ACCOUNT_SEND_CMD(SysConfig, SYSCONFIG_CMD_LOAD);
 
     /* 設置螢幕背景為黑色（單色 OLED 必須） */
@@ -54,21 +43,16 @@ void App_Init()
     /* 設置 lv_layer_top 為透明 */
     lv_obj_set_style_bg_opa(lv_layer_top(), LV_OPA_TRANSP, 0);
 
-    /* Initialize resource pool */
-    // ResourcePool::Init();
-
     /* Initialize status bar - 放在 lv_layer_top 確保始終顯示在最上層 */
     Page::StatusBar_Create(lv_layer_top());
 
     /* Initialize pages first */
     manager.Install("Startup", "Pages/Startup");
-    manager.Install("Radio", "Pages/Radio");
-    manager.Install("Trekking", "Pages/Trekking");
+    manager.Install("Radio",   "Pages/Radio");
+    manager.Install("Trekking","Pages/Trekking");
     manager.Install("System", "Pages/System");
-    manager.Install("Status", "Pages/Status");
-    //manager.Install("SystemInfos", "Pages/SystemInfos");
-    //manager.Install("Settings", "Pages/Settings");
-    manager.SetGlobalLoadAnimType(PageManager::LOAD_ANIM_OVER_TOP,500);
+    manager.Install("Status",  "Pages/Status");
+    manager.SetGlobalLoadAnimType(PageManager::LOAD_ANIM_OVER_TOP, 500);
     manager.Push("Pages/Startup");
     
     #ifdef ENABLE_AUTO_OTA_CHECK
@@ -79,7 +63,6 @@ void App_Init()
 void App_Uninit()
 {
     ACCOUNT_SEND_CMD(SysConfig, SYSCONFIG_CMD_SAVE);
-    //ACCOUNT_SEND_CMD(Recorder,  RECORDER_CMD_STOP);
 }
 
 static void App_Auto_OTA ()
@@ -89,13 +72,13 @@ static void App_Auto_OTA ()
     #else
         String serverURL = "http://your-server.com/firmware";
     #endif
-  
+ 
     #ifdef OTA_VERSION_URL
         String versionURL = OTA_VERSION_URL;
     #else
         String versionURL = "http://your-server.com/version";
     #endif
-  
+ 
     #ifdef OTA_CHECK_INTERVAL
         unsigned long interval = OTA_CHECK_INTERVAL;
     #else
@@ -109,7 +92,6 @@ static void App_Auto_OTA ()
     #endif
 
     #ifdef ENABLE_AUTO_OTA_CHECK
-    // 嘗試自動連接到保存的 WiFi
     bool connected = wifiManager.autoConnectToWiFi();
     Serial.printf("WiFi connection result: %s\n", connected ? "Success" : "Failed");
     if (connected) {
@@ -125,10 +107,8 @@ static void App_Auto_OTA ()
     }
     Serial.println("===== WiFi Manager Debug End =====");
 
-    // Initialize OTA if WiFi is connected
     if (wifiManager.isConnected()) {
-        Serial.println("=== OTA Initialization ===");  //VERSION_SOFTWARE
-        // Initialize OTA updater
+        Serial.println("=== OTA Initialization ===");
         otaUpdater.begin(currentVersion, serverURL, versionURL, interval);
         otaUpdater.enableAutoCheck(true);
 
@@ -144,4 +124,3 @@ static void App_Auto_OTA ()
     }
     #endif
 }
-

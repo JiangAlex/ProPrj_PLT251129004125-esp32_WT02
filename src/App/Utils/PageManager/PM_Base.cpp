@@ -26,6 +26,12 @@
 
 #define PM_EMPTY_PAGE_NAME "EMPTY_PAGE"
 
+// Static member definition
+PageManager* PageManager::s_instance = nullptr;
+
+PageManager* PageManager::GetInstance() { return s_instance; }
+void PageManager::SetInstance(PageManager* inst) { s_instance = inst; }
+
 /**
   * @brief  Page manager constructor
   * @param  factory: Pointer to the page factory
@@ -36,6 +42,7 @@ PageManager::PageManager(PageFactory* factory)
     , PagePrev(nullptr)
     , PageCurrent(nullptr)
 {
+    s_instance = this;  // Register singleton
     memset(&AnimState, 0, sizeof(AnimState));
 
     SetGlobalLoadAnimType();
