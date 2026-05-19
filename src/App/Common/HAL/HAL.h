@@ -210,6 +210,13 @@ namespace HAL
     void PTT_Update();
     void PTT_SetTransmit(bool enable);
 
+    /* WebServer (Web GUI) */
+#ifdef ENABLE_WEB_GUI
+    void WebServer_Init();
+    void WebServer_Update();
+    void WebServer_SetFrameDirty();
+#endif
+
     /* U8g2 */
     void U8g2_Init();
     void U8g2_Test();

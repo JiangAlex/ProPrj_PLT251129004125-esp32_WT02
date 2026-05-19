@@ -8,7 +8,22 @@
 
 static void keypad_read(lv_indev_drv_t *indev_drv, lv_indev_data_t *data) 
 {
-    
+#ifdef ENABLE_WEB_GUI
+    // Virtual button from WebSocket has priority
+    extern volatile uint8_t g_virtual_key;
+    extern volatile bool g_virtual_pressed;
+    if (g_virtual_pressed && g_virtual_key > 0) {
+        data->state = LV_INDEV_STATE_PRESSED;
+        switch (g_virtual_key) {
+            case 1: data->key = LV_KEY_ENTER; break;
+            case 2: data->key = LV_KEY_PREV;  break;
+            case 3: data->key = LV_KEY_NEXT;  break;
+            default: data->state = LV_INDEV_STATE_RELEASED; break;
+        }
+        return;
+    }
+#endif
+
     // 1. 讀取按鍵的物理狀態 (低電平表示按下)
     bool ok_pressed = (digitalRead(CONFIG_MENU_OK_PIN) == LOW);
     bool up_pressed = (digitalRead(CONFIG_UP_BACK_PIN) == LOW);

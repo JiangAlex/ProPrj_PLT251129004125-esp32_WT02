@@ -29,6 +29,10 @@ void HAL::HAL_Init(void)
     #ifdef ENABLE_AUTO_OTA_CHECK
         HAL::WiFi_Init();
     #endif
+    #ifdef ENABLE_WEB_GUI
+        HAL::WiFi_Init();
+        HAL::WebServer_Init();
+    #endif
     // Display_Init();
     //HAL::Button_Init();
     HAL::Clock_Init();  // 初始化時鐘
@@ -64,6 +68,9 @@ void HAL::HAL_Update(void)
     __IntervalExecute(HAL::SA818_Update(), 1000); // Periodically get RSSI
     __IntervalExecute(HAL::PTT_Update(), 20);     // Check PTT button state
     __IntervalExecute(HAL::Button_CheckLongPress(), 100);  // Check for 3-second long press (100ms polling)
+    #ifdef ENABLE_WEB_GUI
+    __IntervalExecute(HAL::WebServer_Update(), 100);  // Push framebuffer at ~10 FPS
+    #endif
     //__IntervalExecute(HAL::WiFi_Update(), 100);
     //__IntervalExecute(HAL::GPS_Update(), 500);
     //__IntervalExecute(HAL::ENV_Update(), 100);

@@ -32,6 +32,10 @@ static void disp_flush_cb(lv_disp_drv_t* disp, const lv_area_t* area, lv_color_t
     // 2. 將更新後的內部緩衝區發送到 SSD1306 晶片
     u8g2.sendBuffer();
 
+#ifdef ENABLE_WEB_GUI
+    HAL::WebServer_SetFrameDirty();
+#endif
+
     // 3. 通知 LVGL 刷新已完成
     lv_disp_flush_ready(disp);
 }
