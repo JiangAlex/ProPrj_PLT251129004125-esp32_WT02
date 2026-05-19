@@ -4,11 +4,12 @@
 using namespace Page;
 
 // 菜單項目文字（不含前綴）
-const char* StartupView::menuTexts[4] = {
+const char* StartupView::menuTexts[5] = {
+    "Radio",
     "Trekking",
-    "Radio", 
-    "System",
-    "Status"
+    "Map",
+    "Status",
+    "System"
 };
 
 void StartupView::Create(lv_obj_t *root)
@@ -48,8 +49,8 @@ void StartupView::Create(lv_obj_t *root)
     ui.menuList = menuList;
     ui.cont = menuList;
 
-    // 創建 4 個菜單項目（每項 9px 高）
-    for (int i = 0; i < 4; i++) {
+    // 創建 5 個菜單項目（每項 9px 高）
+    for (int i = 0; i < 5; i++) {
         lv_obj_t* item = lv_label_create(menuList);
         lv_obj_set_style_text_font(item, &lv_font_unscii_8, 0);
         lv_label_set_text(item, menuTexts[i]);  // 先設置基本文字，SetSelected 會更新
@@ -82,17 +83,17 @@ void StartupView::Create(lv_obj_t *root)
     // 設置初始選中項目
     SetSelected(0);
     
-    Serial.printf("[StartupView] Menu created with %d items\n", 4);
+    Serial.printf("[StartupView] Menu created with %d items\n", 5);
 }
 
 void StartupView::SetSelected(int index)
 {
     if (index < 0) index = 0;
-    if (index >= 4) index = 3;
+    if (index >= 5) index = 4;
     
     // 更新所有菜單項目文字（使用 ▶ 標記選中項）
     char buf[32];
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
         if (i == index) {
             snprintf(buf, sizeof(buf), "> %s", menuTexts[i]);  // 選中項加前綴
         } else {
@@ -124,7 +125,7 @@ void StartupView::Delete()
     }
     
     // 清理所有菜單項目的動畫
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
         if (ui.menuItems[i]) {
             lv_anim_del(ui.menuItems[i], NULL);  // 刪除該物件的所有動畫
         }

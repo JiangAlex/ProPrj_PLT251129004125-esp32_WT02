@@ -2,6 +2,7 @@
 #define SYSTEM_H
 
 #include "App/Utils/PageManager/PageBase.h"
+#include "App/Pages/Page.h"
 #include "SystemView.h"
 #include "SystemModel.h"
 
@@ -23,6 +24,7 @@ namespace Page
 
     private:
         static void onTimer(lv_timer_t *timer);
+        void handleOK();
         SystemView View;
         SystemModel Model;
         lv_timer_t *timer;

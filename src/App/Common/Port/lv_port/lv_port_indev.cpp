@@ -12,13 +12,16 @@ static void keypad_read(lv_indev_drv_t *indev_drv, lv_indev_data_t *data)
     // Virtual button from WebSocket has priority
     extern volatile uint8_t g_virtual_key;
     extern volatile bool g_virtual_pressed;
-    if (g_virtual_pressed && g_virtual_key > 0) {
-        data->state = LV_INDEV_STATE_PRESSED;
+    extern volatile uint32_t g_virtual_timestamp;
+    if (g_virtual_key > 0) {
         switch (g_virtual_key) {
             case 1: data->key = LV_KEY_ENTER; break;
             case 2: data->key = LV_KEY_PREV;  break;
             case 3: data->key = LV_KEY_NEXT;  break;
-            default: data->state = LV_INDEV_STATE_RELEASED; break;
+        }
+        data->state = g_virtual_pressed ? LV_INDEV_STATE_PRESSED : LV_INDEV_STATE_RELEASED;
+        if (!g_virtual_pressed) {
+            g_virtual_key = 0;
         }
         return;
     }
@@ -72,6 +75,7 @@ void lv_port_indev_init()
     // 創建一個組，並將輸入設備與該組連接，用於在 UI 物件之間切換焦點
     static lv_group_t *group;
     group = lv_group_create();
+    lv_group_set_default(group);
     lv_indev_set_group(indev, group);
 }
 #endif

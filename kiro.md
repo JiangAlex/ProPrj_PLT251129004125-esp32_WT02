@@ -44,3 +44,78 @@ Browser keydown/keyup → ws.send([key_id, state]) → ESP32 onEvent
                                     ↓
 volatile virtual_key/virtual_pressed → keypad_read() priority check
 ```
+
+---
+
+## Full GUI Redesign — Professional Hiking Radio
+
+### Hardware
+- ESP32-WROOM-32E-N16 (16MB Flash)
+- SSD1306 128x64 OLED (I2C 0x3C)
+- SA818 Radio Module (UART1, GPIO 13/14)
+- GPS Module (UART2, GPIO 16 RX / GPIO 17 TX, 9600 baud)
+- Buttons: OK=GPIO32, UP=GPIO33, DOWN=GPIO34, PTT=GPIO35
+- WebGUI: ESPAsyncWebServer + WebSocket (OLED streaming + key injection + GPX upload + OTA)
+
+### 16MB Flash Partition (OTA + SPIFFS)
+```
+nvs,       data, nvs,     0x9000,    0x5000    (20KB)
+otadata,   data, ota,     0xE000,    0x2000    (8KB)
+ota_0,     app,  ota_0,   0x10000,   0x300000  (3MB)
+ota_1,     app,  ota_1,   0x310000,  0x300000  (3MB)
+spiffs,    data, spiffs,  0x610000,  0x9F0000  (~10MB)
+```
+
+### Page Structure (128x64 OLED)
+```
+┌─────────────────────────┐ 0
+│ StatusBar (16px)        │ Time | Battery | WiFi | PTT
+├─────────────────────────┤ 16
+│ Main Content (34px)     │ Scrollable list / Map canvas
+├─────────────────────────┤ 50
+│ FuncBar (14px)          │ [ACTION] [BACK]
+└─────────────────────────┘ 64
+```
+
+### Pages
+
+1. **StartUp** (Main Menu): Radio, Trekking, Map, Status, System
+2. **Radio** (keep existing): CH/CTCSS/Power/RSSI/VOL/SQ + [SCAN][BACK]
+3. **Trekking** (keep existing): Temp/Alt/Pres/Asc/Dist/Time/Stat + [START][BACK]
+4. **Map** (NEW): GPX track rendering + GPS position + waypoint navigation
+5. **Status** (keep existing): TEMP/ALT/PRES/STEP/COMP + [BACK]
+6. **System** (rewrite): WiFi/IP/Heap/Brightness/GPS sat/Version/OTA Update/Reset WiFi/Reboot + [OK][BACK]
+
+### Map Page Design
+- 128x34 pixel canvas for track rendering
+- GPS position shown as ▲ with heading
+- GPX track drawn as pixel lines (auto-fit bounding box)
+- Waypoints shown as ★
+- FuncBar: `[WPT] [BACK]`
+- Bottom info: waypoint name + distance + bearing
+- UP/DOWN to switch target waypoint
+
+### WebGUI Extensions
+- GPX file upload (HTTP POST /upload → parse → SPIFFS)
+- OTA firmware upload (HTTP POST /ota → Update library)
+- Max 500 track points + 50 waypoints per GPX
+
+### Navigation Logic (all pages)
+- UP/DOWN: navigate menu items
+- DOWN past last item → enter FuncBar
+- UP in FuncBar → back to menu
+- OK: execute selected item or FuncBar action
+- `>` = selected, `*` = edit mode
+
+### Task List
+1. Fix WebGUI virtual button for all pages (add Page.h include)
+2. Partition setup (16MB OTA + SPIFFS) + platformio.ini config
+3. GPS driver (TinyGPSPlus, UART2 GPIO16/17)
+4. System page rewrite (WiFi/IP/Heap/Bright/GPS/Version/OTA/Reset/Reboot)
+5. Map page — GPS position display
+6. Map page — GPX track rendering
+7. Map page — Waypoint navigation
+8. WebGUI — GPX upload endpoint + parser
+9. StartUp menu update (add Map)
+10. WebGUI — OTA firmware upload
+11. Integration test + cleanup

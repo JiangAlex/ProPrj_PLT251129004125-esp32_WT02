@@ -1,21 +1,21 @@
-#ifndef TREKKING_H
-#define TREKKING_H
+#ifndef MAP_H
+#define MAP_H
 
 #include "App/Utils/PageManager/PageBase.h"
 #include "App/Pages/Page.h"
-#include "TrekkingView.h"
-#include "TrekkingModel.h"
+#include "MapView.h"
+#include "MapModel.h"
 
 namespace Page
 {
-    class Trekking : public PageBase
+    class Map : public PageBase
     {
     public:
-        Trekking();
-        virtual ~Trekking();
+        Map();
+        virtual ~Map();
 
-        virtual void onViewLoad() override;
         virtual void onCustomAttrConfig() override;
+        virtual void onViewLoad() override;
         virtual void onViewWillAppear() override;
         virtual void onViewDidAppear() override;
         virtual void onViewWillDisappear() override;
@@ -24,12 +24,9 @@ namespace Page
 
     private:
         static void onTimer(lv_timer_t *timer);
-        TrekkingView View;
-        TrekkingModel Model;
+        MapView View;
+        MapModel Model;
         lv_timer_t *timer;
-        bool isEntryMode;
-        uint32_t pressStartTime;
-        bool isLongPressHandled;
         uint32_t lastBtnTime;
     };
 }

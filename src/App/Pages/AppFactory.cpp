@@ -4,6 +4,7 @@
 #include "Trekking/Trekking.h"
 #include "System/System.h"
 #include "Status/Status.h"
+#include "Map/Map.h"
 
 
 #define APP_CLASS_MATCH(className)         \
@@ -24,6 +25,7 @@ PageBase *AppFactory::CreatePage(const char *name)
     APP_CLASS_MATCH(Trekking);
     APP_CLASS_MATCH(System);
     APP_CLASS_MATCH(Status);
+    APP_CLASS_MATCH(Map);
     //APP_CLASS_MATCH(MenuPresenter);
     
     Serial.printf("[AppFactory] Error: Page '%s' not found in factory!\n", name);

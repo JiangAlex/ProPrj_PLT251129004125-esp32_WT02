@@ -140,21 +140,20 @@ void Startup::onTimer(lv_timer_t *timer)
             
             // 根據選擇跳轉頁面
             switch (sel) {
-                case 0:  // Trekking
-                    Serial.println("[Menu] -> Trekking");
-                    instance->Manager->Push("Pages/Trekking");
-                    break;
-                case 1:  // Radio
-                    Serial.println("[Menu] -> Radio");
+                case 0:  // Radio
                     instance->Manager->Push("Pages/Radio");
                     break;
-                case 2:  // System
-                    Serial.println("[Menu] -> System");
-                    instance->Manager->Push("Pages/System");
+                case 1:  // Trekking
+                    instance->Manager->Push("Pages/Trekking");
+                    break;
+                case 2:  // Map
+                    instance->Manager->Push("Pages/Map");
                     break;
                 case 3:  // Status
-                    Serial.println("[Menu] -> Status");
                     instance->Manager->Push("Pages/Status");
+                    break;
+                case 4:  // System
+                    instance->Manager->Push("Pages/System");
                     break;
             }
             lastTimeOk = now;

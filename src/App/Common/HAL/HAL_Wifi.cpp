@@ -7,6 +7,9 @@ static WiFiManager wifiManager; // WiFi Manager instance
 static void onWiFiConnected() {
     Serial.println("[HAL_WiFi] WiFi connected, syncing NTP...");
     HAL::Clock_SyncNTP();
+#ifdef ENABLE_WEB_GUI
+    HAL::WebServer_Init();
+#endif
 }
 
 void HAL::WiFi_Init() {
@@ -20,7 +23,7 @@ void HAL::WiFi_Init() {
 }
 
 void HAL::WiFi_Update(void) {
-	Serial.println("Update WiFi...");
+	wifiManager.loop();
 }
 void HAL::WiFi_APSetEnable(bool en) {
 	Serial.println("AP Mode...");

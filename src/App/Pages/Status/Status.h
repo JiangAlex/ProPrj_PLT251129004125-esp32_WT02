@@ -2,6 +2,7 @@
 #define STATUS_H
 
 #include "App/Utils/PageManager/PageBase.h"
+#include "App/Pages/Page.h"
 #include "StatusView.h"
 #include "StatusModel.h"
 

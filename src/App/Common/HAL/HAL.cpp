@@ -1,6 +1,7 @@
 
 #include <stdint.h>
 #include "HAL.h"
+#include <SPIFFS.h>
 
 /**
  * @brief Task to handle hal timer
@@ -23,6 +24,13 @@ void HAL::HAL_Init(void)
     delay(100);
     Serial.println("HAL_Init: Starting hardware abstraction layer...");
     
+    // Initialize SPIFFS
+    if (SPIFFS.begin(true)) {
+        Serial.printf("SPIFFS: Mounted, total=%u, used=%u\n", SPIFFS.totalBytes(), SPIFFS.usedBytes());
+    } else {
+        Serial.println("SPIFFS: Mount FAILED");
+    }
+    
     // Initialize core modules
     HAL::I2C_Init(true);
     HAL::U8g2_Init(); // Initialize U8g2 for display
@@ -31,7 +39,7 @@ void HAL::HAL_Init(void)
     #endif
     #ifdef ENABLE_WEB_GUI
         HAL::WiFi_Init();
-        HAL::WebServer_Init();
+        // WebServer_Init is called from WiFi connected callback to avoid port conflict
     #endif
     // Display_Init();
     //HAL::Button_Init();
@@ -39,6 +47,7 @@ void HAL::HAL_Init(void)
     // Power_Init();  // TODO: Implement Power_Init()
     HAL::SA818_Init();  // Enable SA818/DRA818 for testing
     HAL::PTT_Init();    // Initialize PTT (Push To Talk)
+    HAL::GPS_Init();    // Initialize GPS module
 
     // Optional modules
     // Buzz_init(); // Still not implemented
@@ -68,10 +77,11 @@ void HAL::HAL_Update(void)
     __IntervalExecute(HAL::SA818_Update(), 1000); // Periodically get RSSI
     __IntervalExecute(HAL::PTT_Update(), 20);     // Check PTT button state
     __IntervalExecute(HAL::Button_CheckLongPress(), 100);  // Check for 3-second long press (100ms polling)
+    __IntervalExecute(HAL::GPS_Update(), 100);    // Feed GPS NMEA data
     #ifdef ENABLE_WEB_GUI
     __IntervalExecute(HAL::WebServer_Update(), 100);  // Push framebuffer at ~10 FPS
+    __IntervalExecute(HAL::WiFi_Update(), 50);        // Handle WiFiManager portal
     #endif
-    //__IntervalExecute(HAL::WiFi_Update(), 100);
     //__IntervalExecute(HAL::GPS_Update(), 500);
     //__IntervalExecute(HAL::ENV_Update(), 100);
     
