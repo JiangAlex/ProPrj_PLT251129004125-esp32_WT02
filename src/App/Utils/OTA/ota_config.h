@@ -9,11 +9,11 @@
 #endif
 
 #ifndef OTA_SERVER_URL
-#define OTA_SERVER_URL "http://your-server.com/firmware"
+#define OTA_SERVER_URL "http://192.168.131.62:8080/firmware.bin"
 #endif
 
 #ifndef OTA_VERSION_URL
-#define OTA_VERSION_URL "http://your-server.com/version"
+#define OTA_VERSION_URL "http://192.168.131.62:8080/version"
 #endif
 
 #ifndef OTA_CHECK_INTERVAL

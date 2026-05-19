@@ -1,7 +1,10 @@
 #include "HAL.h"
 #include "App/Utils/WiFiManager/wifi_manager.h"
+#include "App/Utils/OTA/ota_updater.h"
+#include "App/Utils/OTA/ota_config.h"
+#include "App/Configs/Version.h"
 
-static WiFiManager wifiManager; // WiFi Manager instance
+static WiFiManager wifiManager;
 
 // WiFi 連接成功回調
 static void onWiFiConnected() {
@@ -10,6 +13,12 @@ static void onWiFiConnected() {
 #ifdef ENABLE_WEB_GUI
     HAL::WebServer_Init();
 #endif
+    // OTA auto-check
+    otaUpdater.begin(VERSION_SOFTWARE, OTA_SERVER_URL, OTA_VERSION_URL);
+    if (otaUpdater.checkForUpdates()) {
+        Serial.println("[OTA] New version available!");
+        HAL::OTA_SetUpdateAvailable(true);
+    }
 }
 
 void HAL::WiFi_Init() {

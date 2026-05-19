@@ -1,5 +1,6 @@
 #include "HAL.h"
 #include <Arduino.h>
+#include <Preferences.h>
 #include "SA818.h"          // New SA818 driver
 #include "App/Common/DataProc/DataProc.h" // Include DataProc
 
@@ -40,8 +41,33 @@ static void SA818_Notify()
         SA818_Info_t info;
         HAL::SA818_GetInfo(&info);
         sa818_account->Notify("SA818", &info, sizeof(info));
-        // Serial.println("HAL_SA818: Notified DataProc");
     }
+}
+
+static void SA818_LoadSettings()
+{
+    Preferences prefs;
+    prefs.begin("radio", true); // read-only
+    current_channel = prefs.getInt("ch", 1);
+    current_power_mode = (SA818_PowerMode)prefs.getUChar("pwr", SA818_LOW_POWER);
+    g_sa818_volume = prefs.getUChar("vol", 5);
+    g_sa818_squelch = prefs.getUChar("sq", 4);
+    g_sa818_ctcss = prefs.getUChar("ctcss", 0);
+    prefs.end();
+    Serial.printf("SA818_LoadSettings: CH=%d PWR=%d VOL=%d SQ=%d CTCSS=%d\n",
+                  current_channel, current_power_mode, g_sa818_volume, g_sa818_squelch, g_sa818_ctcss);
+}
+
+static void SA818_SaveSettings()
+{
+    Preferences prefs;
+    prefs.begin("radio", false);
+    prefs.putInt("ch", current_channel);
+    prefs.putUChar("pwr", (uint8_t)current_power_mode);
+    prefs.putUChar("vol", g_sa818_volume);
+    prefs.putUChar("sq", g_sa818_squelch);
+    prefs.putUChar("ctcss", g_sa818_ctcss);
+    prefs.end();
 }
 
 void HAL::SA818_Init()
@@ -77,10 +103,8 @@ void HAL::SA818_Init()
     if (connected) {
         Serial.println("SA818_Init: Connection successful.");
 
-        // Force reset internal state to defaults to ensure consistency
-        current_power_mode = SA818_LOW_POWER;
-        current_channel = 1;
-        Serial.println("SA818_Init: Resetting state to Low Power, Channel 1");
+        // Load saved settings from NVS
+        SA818_LoadSettings();
 
         // Apply default settings
         // NOTE: The old implementation used CTCSS index. The new one uses frequency.
@@ -293,6 +317,7 @@ bool HAL::SA818_SetChannel(int channel, SA818_PowerMode powerMode) {
         current_power_mode = powerMode;
         Serial.printf("SA818_SetChannel: Successfully set to channel %d (%s, %.4f MHz)\n", 
                       channel, getPowerModeName(powerMode), frequency);
+        SA818_SaveSettings();
         SA818_Notify();
         return true;
     } else {
@@ -355,8 +380,9 @@ void HAL::SA818_SetVolume(uint8_t vol)
     if (vol < 1) vol = 1;
     if (vol > 8) vol = 8;
     g_sa818_volume = vol;
-    sa818.setVolume(vol); // 實際設定到 SA818
+    sa818.setVolume(vol);
     Serial.printf("HAL_SA818: Set volume to %d\n", vol);
+    SA818_SaveSettings();
     SA818_Notify();
 }
 
@@ -367,12 +393,10 @@ uint8_t HAL::SA818_GetVolume()
 
 void HAL::SA818_SetCTCSS(uint8_t ctcss)
 {
-    // CTCSS: 0=OFF, 1-38=tone index
     if (ctcss > 38) ctcss = 38;
     g_sa818_ctcss = ctcss;
     Serial.printf("HAL_SA818: Set CTCSS to %d\n", ctcss);
-    
-    // 更新 SA818 設定
+    SA818_SaveSettings();
     SA818_UpdateGroup();
 }
 
@@ -383,12 +407,10 @@ uint8_t HAL::SA818_GetCTCSS()
 
 void HAL::SA818_SetSquelch(uint8_t squelch)
 {
-    // Squelch: 0-8
     if (squelch > 8) squelch = 8;
     g_sa818_squelch = squelch;
     Serial.printf("HAL_SA818: Set Squelch to %d\n", squelch);
-    
-    // 更新 SA818 設定
+    SA818_SaveSettings();
     SA818_UpdateGroup();
 }
 

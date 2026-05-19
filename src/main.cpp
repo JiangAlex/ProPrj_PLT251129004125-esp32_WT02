@@ -13,10 +13,17 @@
   static WiFiManager wifiManager; // WiFi Manager instance
 #endif
 
+extern SemaphoreHandle_t xGuiSemaphore;
+
 void setup() {
   HAL::HAL_Init(); /* HAL Initialization */
   Port_Init(); /* Port Initialization */
+  
+  /* Hold GUI mutex during App_Init to prevent LVGL task from rendering
+     before screen styles and widgets are fully initialized */
+  xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
   App_Init(); /* Application Initialization */
+  xSemaphoreGive(xGuiSemaphore);
   #ifdef USE_TEST
     TEST::Test_Init();
   #endif

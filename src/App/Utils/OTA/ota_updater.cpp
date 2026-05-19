@@ -7,6 +7,7 @@ OTAUpdater::OTAUpdater() {
     lastCheckTime = 0;
     checkInterval = 3600000; // 1 hour default
     autoCheckEnabled = false;
+    progressCb = nullptr;
 }
 
 void OTAUpdater::begin(const String& version, const String& serverUrl, const String& versionUrl, unsigned long interval) {
@@ -177,17 +178,41 @@ bool OTAUpdater::downloadAndInstallFirmware(const String& firmwareURL) {
                 Serial.printf("Starting OTA update. Firmware size: %d bytes\n", contentLength);
                 
                 WiFiClient* client = http.getStreamPtr();
-                size_t written = Update.writeStream(*client);
-                
-                if (written == contentLength) {
+                uint8_t buf[1024];
+                size_t totalWritten = 0;
+                int lastPercent = -1;
+
+                while (totalWritten < (size_t)contentLength) {
+                    size_t available = client->available();
+                    if (available == 0) {
+                        delay(1);
+                        continue;
+                    }
+                    size_t toRead = (available > sizeof(buf)) ? sizeof(buf) : available;
+                    size_t bytesRead = client->read(buf, toRead);
+                    if (bytesRead > 0) {
+                        Update.write(buf, bytesRead);
+                        totalWritten += bytesRead;
+                        int percent = (totalWritten * 100) / contentLength;
+                        if (percent != lastPercent) {
+                            lastPercent = percent;
+                            if (progressCb) progressCb(percent);
+                            Serial.printf("\r[OTA] Progress: %d%%", percent);
+                        }
+                    }
+                }
+                Serial.println();
+
+                if (totalWritten == (size_t)contentLength) {
                     Serial.println("Written firmware successfully");
                 } else {
-                    Serial.printf("Written only %d/%d bytes\n", written, contentLength);
+                    Serial.printf("Written only %d/%d bytes\n", totalWritten, contentLength);
                 }
                 
                 if (Update.end()) {
                     if (Update.isFinished()) {
                         Serial.println("OTA update completed successfully!");
+                        if (progressCb) progressCb(100);
                         http.end();
                         return true;
                     } else {
@@ -208,6 +233,10 @@ bool OTAUpdater::downloadAndInstallFirmware(const String& firmwareURL) {
     
     http.end();
     return false;
+}
+
+void OTAUpdater::setProgressCallback(OTAProgressCallback cb) {
+    progressCb = cb;
 }
 
 void OTAUpdater::rebootDevice() {
@@ -248,8 +277,7 @@ void OTAUpdater::handleAutoCheck() {
         Serial.println("Performing automatic OTA check...");
         
         if (checkForUpdates()) {
-            Serial.println("Update available, starting automatic update...");
-            performUpdate();
+            Serial.println("[OTA] New version available! Use System page or WebGUI to update.");
         }
     }
 }

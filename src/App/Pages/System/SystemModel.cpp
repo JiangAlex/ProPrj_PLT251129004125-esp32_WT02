@@ -1,15 +1,22 @@
 #include "SystemModel.h"
 #include "App/Common/HAL/HAL.h"
 #include "App/Configs/Version.h"
+#include "App/Utils/OTA/ota_updater.h"
 #include <WiFi.h>
 #include <EEPROM.h>
+#include <Preferences.h>
 
 using namespace Page;
 
 void SystemModel::Init()
 {
     account = new Account("SystemModel", DataProc::Center(), 0, this);
-    brightness = 5;
+    // Load brightness from NVS
+    Preferences prefs;
+    prefs.begin("system", true);
+    brightness = prefs.getUChar("bright", 5);
+    prefs.end();
+    HAL::U8g2_SetBrightness(brightness * 32 - 1);
 }
 
 void SystemModel::Deinit()
@@ -42,7 +49,24 @@ void SystemModel::SetBrightness(uint8_t val) {
     if (val < 1) val = 1;
     if (val > 8) val = 8;
     brightness = val;
-    HAL::U8g2_SetBrightness(val * 32 - 1); // 1-8 → 31-255
+    HAL::U8g2_SetBrightness(val * 32 - 1);
+    Preferences prefs;
+    prefs.begin("system", false);
+    prefs.putUChar("bright", val);
+    prefs.end();
+}
+
+int8_t SystemModel::GetTimezone() { return HAL::Clock_GetTimezone(); }
+
+void SystemModel::SetTimezone(int8_t tz) {
+    HAL::Clock_SetTimezone(tz);
+    HAL::Clock_SyncNTP();
+}
+
+bool SystemModel::Is24Hour() { return HAL::Clock_Is24Hour(); }
+
+void SystemModel::Toggle24Hour() {
+    HAL::Clock_Set24Hour(!HAL::Clock_Is24Hour());
 }
 
 void SystemModel::ResetWiFi() {
@@ -58,6 +82,10 @@ void SystemModel::Reboot() {
 }
 
 void SystemModel::TriggerOTA() {
-    Serial.println("[System] OTA check triggered");
-    // OTA will be handled via WebGUI upload (Task 10)
+    Serial.println("[System] OTA update triggered");
+    otaUpdater.performUpdate();
+}
+
+bool SystemModel::IsOTAAvailable() {
+    return HAL::OTA_IsUpdateAvailable();
 }

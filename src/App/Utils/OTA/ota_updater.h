@@ -7,6 +7,8 @@
 #include <Update.h>
 #include <ArduinoJson.h>
 
+typedef void (*OTAProgressCallback)(int percent);
+
 class OTAUpdater {
 private:
     String currentVersion;
@@ -15,9 +17,9 @@ private:
     unsigned long lastCheckTime;
     unsigned long checkInterval;
     bool autoCheckEnabled;
+    OTAProgressCallback progressCb;
     
     bool checkWiFiConnection();
-    String getRemoteVersion();
     bool downloadAndInstallFirmware(const String& firmwareURL);
     void rebootDevice();
     int compareVersions(const String& version1, const String& version2);
@@ -27,8 +29,10 @@ public:
     void begin(const String& version, const String& serverUrl, const String& versionUrl, unsigned long interval = 3600000);
     void enableAutoCheck(bool enable);
     bool checkForUpdates();
+    String getRemoteVersion();
     void handleAutoCheck();
     bool performUpdate();
+    void setProgressCallback(OTAProgressCallback cb);
     void setCurrentVersion(const String& version);
     String getLastCheckTime();
 };

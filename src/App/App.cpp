@@ -4,14 +4,9 @@
 #include "App/Pages/AppFactory.h"
 #include "App/Pages/StatusBar/StatusBar.h"
 #include "App/Utils/PageManager/PageManager.h"
+#include "App/Utils/OTA/ota_updater.h"
 
 using namespace Page;
-
-#ifdef ENABLE_AUTO_OTA_CHECK
-  #include "App/Utils/WiFiManager/wifi_manager.h"
-  #include "App/Utils/OTA/ota_updater.h"
-  static WiFiManager wifiManager; // WiFi Manager instance
-#endif
     
 #define ACCOUNT_SEND_CMD(ACT, CMD)                                         \
     do                                                                     \
@@ -56,72 +51,141 @@ void App_Init()
     manager.SetGlobalLoadAnimType(PageManager::LOAD_ANIM_OVER_TOP, 500);
     manager.Push("Pages/Startup");
     
-    #ifdef ENABLE_AUTO_OTA_CHECK
-        App_Auto_OTA();
-    #endif
+    /* Check if OTA update was detected during WiFi init */
+    if (HAL::OTA_IsUpdateAvailable()) {
+        String remoteVer = otaUpdater.getRemoteVersion();
+        Serial.printf("[OTA] Showing update dialog: v%s\n", remoteVer.c_str());
+
+        // Build dialog on lv_layer_top
+        lv_obj_t *overlay = lv_obj_create(lv_layer_top());
+        lv_obj_remove_style_all(overlay);
+        lv_obj_set_size(overlay, 128, 64);
+        lv_obj_set_style_bg_color(overlay, lv_color_black(), 0);
+        lv_obj_set_style_bg_opa(overlay, LV_OPA_COVER, 0);
+
+        lv_obj_t *title = lv_label_create(overlay);
+        lv_label_set_text(title, "OTA Update");
+        lv_obj_set_style_text_color(title, lv_color_white(), 0);
+        lv_obj_set_style_text_font(title, &lv_font_unscii_8, 0);
+        lv_obj_align(title, LV_ALIGN_TOP_MID, 0, 2);
+
+        lv_obj_t *info = lv_label_create(overlay);
+        char infoBuf[32];
+        snprintf(infoBuf, sizeof(infoBuf), "New: v%s", remoteVer.c_str());
+        lv_label_set_text(info, infoBuf);
+        lv_obj_set_style_text_color(info, lv_color_white(), 0);
+        lv_obj_set_style_text_font(info, &lv_font_unscii_8, 0);
+        lv_obj_align(info, LV_ALIGN_TOP_MID, 0, 16);
+
+        lv_obj_t *prompt = lv_label_create(overlay);
+        lv_label_set_text(prompt, "Update now?");
+        lv_obj_set_style_text_color(prompt, lv_color_white(), 0);
+        lv_obj_set_style_text_font(prompt, &lv_font_unscii_8, 0);
+        lv_obj_align(prompt, LV_ALIGN_TOP_MID, 0, 28);
+
+        // Selection labels: use > marker for selected item
+        lv_obj_t *lblYes = lv_label_create(overlay);
+        lv_obj_set_style_text_color(lblYes, lv_color_white(), 0);
+        lv_obj_set_style_text_font(lblYes, &lv_font_unscii_8, 0);
+        lv_obj_align(lblYes, LV_ALIGN_BOTTOM_LEFT, 20, -6);
+
+        lv_obj_t *lblNo = lv_label_create(overlay);
+        lv_obj_set_style_text_color(lblNo, lv_color_white(), 0);
+        lv_obj_set_style_text_font(lblNo, &lv_font_unscii_8, 0);
+        lv_obj_align(lblNo, LV_ALIGN_BOTTOM_RIGHT, -20, -6);
+
+        // Default selection: No (sel=1)
+        int sel = 1;
+        lv_label_set_text(lblYes, " Yes");
+        lv_label_set_text(lblNo, ">No");
+
+        // Release GUI semaphore so LVGL can render
+        extern SemaphoreHandle_t xGuiSemaphore;
+        xSemaphoreGive(xGuiSemaphore);
+
+        // Poll GPIO directly for Yes/No selection
+        #define BTN_OK_PIN    32
+        #define BTN_UP_PIN    33
+        #define BTN_DOWN_PIN  34
+
+        bool confirmed = false;
+        while (!confirmed) {
+            bool up = (digitalRead(BTN_UP_PIN) == LOW);
+            bool down = (digitalRead(BTN_DOWN_PIN) == LOW);
+            bool ok = (digitalRead(BTN_OK_PIN) == LOW);
+
+            if ((up || down) && sel != (up ? 0 : 1)) {
+                sel = up ? 0 : 1;
+                lv_label_set_text(lblYes, sel == 0 ? ">Yes" : " Yes");
+                lv_label_set_text(lblNo,  sel == 1 ? ">No"  : " No");
+                delay(200);  // debounce
+            }
+            if (ok) {
+                confirmed = true;
+                delay(200);  // debounce
+            }
+            delay(20);
+        }
+
+        // Re-take semaphore
+        xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
+
+        if (sel == 0) {  // Yes
+            Serial.println("[OTA] User accepted, starting update...");
+
+            // Show OTA progress screen
+            lv_obj_clean(overlay);
+            lv_obj_t *otaTitle = lv_label_create(overlay);
+            lv_label_set_text(otaTitle, "Updating...");
+            lv_obj_set_style_text_color(otaTitle, lv_color_white(), 0);
+            lv_obj_set_style_text_font(otaTitle, &lv_font_unscii_8, 0);
+            lv_obj_align(otaTitle, LV_ALIGN_TOP_MID, 0, 8);
+
+            lv_obj_t *bar = lv_bar_create(overlay);
+            lv_obj_set_size(bar, 100, 12);
+            lv_obj_align(bar, LV_ALIGN_CENTER, 0, 4);
+            lv_bar_set_range(bar, 0, 100);
+            lv_bar_set_value(bar, 0, LV_ANIM_OFF);
+            lv_obj_set_style_bg_color(bar, lv_color_black(), 0);
+            lv_obj_set_style_border_color(bar, lv_color_white(), 0);
+            lv_obj_set_style_border_width(bar, 1, 0);
+            lv_obj_set_style_bg_color(bar, lv_color_white(), LV_PART_INDICATOR);
+            lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, LV_PART_INDICATOR);
+
+            lv_obj_t *pctLabel = lv_label_create(overlay);
+            lv_label_set_text(pctLabel, "0%");
+            lv_obj_set_style_text_color(pctLabel, lv_color_white(), 0);
+            lv_obj_set_style_text_font(pctLabel, &lv_font_unscii_8, 0);
+            lv_obj_align(pctLabel, LV_ALIGN_BOTTOM_MID, 0, -8);
+
+            static lv_obj_t *s_bar = nullptr;
+            static lv_obj_t *s_pctLabel = nullptr;
+            s_bar = bar;
+            s_pctLabel = pctLabel;
+
+            otaUpdater.setProgressCallback([](int percent) {
+                if (s_bar) lv_bar_set_value(s_bar, percent, LV_ANIM_OFF);
+                if (s_pctLabel) {
+                    char buf[8];
+                    snprintf(buf, sizeof(buf), "%d%%", percent);
+                    lv_label_set_text(s_pctLabel, buf);
+                }
+            });
+
+            xSemaphoreGive(xGuiSemaphore);
+            otaUpdater.performUpdate();
+            // Only reaches here on failure
+            xSemaphoreTake(xGuiSemaphore, portMAX_DELAY);
+            lv_obj_del(overlay);
+            Serial.println("[OTA] Update failed!");
+        } else {
+            Serial.println("[OTA] User declined update.");
+            lv_obj_del(overlay);
+        }
+    }
 }
 
 void App_Uninit()
 {
     ACCOUNT_SEND_CMD(SysConfig, SYSCONFIG_CMD_SAVE);
-}
-
-static void App_Auto_OTA ()
-{
-    #ifdef OTA_SERVER_URL
-        String serverURL = OTA_SERVER_URL;
-    #else
-        String serverURL = "http://your-server.com/firmware";
-    #endif
- 
-    #ifdef OTA_VERSION_URL
-        String versionURL = OTA_VERSION_URL;
-    #else
-        String versionURL = "http://your-server.com/version";
-    #endif
- 
-    #ifdef OTA_CHECK_INTERVAL
-        unsigned long interval = OTA_CHECK_INTERVAL;
-    #else
-        unsigned long interval = 3600; // 1 hour default
-    #endif
-
-    #ifdef CURRENT_VERSION
-        String currentVersion = CURRENT_VERSION;
-    #else
-        String currentVersion = "1.0.0";
-    #endif
-
-    #ifdef ENABLE_AUTO_OTA_CHECK
-    bool connected = wifiManager.autoConnectToWiFi();
-    Serial.printf("WiFi connection result: %s\n", connected ? "Success" : "Failed");
-    if (connected) {
-      Serial.println("Connected to WiFi network!");
-      Serial.print("IP address: ");
-      Serial.println(wifiManager.getIP());
-      Serial.printf("Connected to SSID: %s\n", wifiManager.getSSID().c_str());
-    } else {
-      Serial.println("Failed to connect to saved WiFi.");
-      Serial.println("Starting WiFi configuration portal...");
-      wifiManager.startConfigPortal();
-      Serial.println("OTA functionality will be available after WiFi setup.");
-    }
-    Serial.println("===== WiFi Manager Debug End =====");
-
-    if (wifiManager.isConnected()) {
-        Serial.println("=== OTA Initialization ===");
-        otaUpdater.begin(currentVersion, serverURL, versionURL, interval);
-        otaUpdater.enableAutoCheck(true);
-
-        Serial.println("Performing initial OTA check...");
-        if (otaUpdater.checkForUpdates()) {
-            Serial.println("Update available! Will update on next check cycle.");
-        } else {
-            Serial.println("No updates available.");
-        }
-    Serial.println("=== OTA Initialization Complete ===");
-    } else {
-        Serial.println("WiFi not connected - OTA disabled");
-    }
-    #endif
 }

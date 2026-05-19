@@ -18,14 +18,19 @@ namespace Page
         String GetIP();
         uint32_t GetFreeHeap();
         uint8_t GetBrightness();
+        int8_t GetTimezone();
+        bool Is24Hour();
         uint8_t GetGPSSatellites();
         const char* GetVersion();
 
         // Actions
         void SetBrightness(uint8_t val);
+        void SetTimezone(int8_t tz);
+        void Toggle24Hour();
         void ResetWiFi();
         void Reboot();
         void TriggerOTA();
+        bool IsOTAAvailable();
 
     private:
         Account* account;

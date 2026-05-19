@@ -119,3 +119,23 @@ spiffs,    data, spiffs,  0x610000,  0x9F0000  (~10MB)
 9. StartUp menu update (add Map)
 10. WebGUI — OTA firmware upload
 11. Integration test + cleanup
+
+---
+
+## Notes
+
+- Map page lv_canvas may have issues on monochrome OLED with LVGL 8.x. May need to switch to direct U8g2 framebuffer drawing if display is abnormal.
+- GPX upload uses String accumulation — large files (>100KB) may cause heap issues. Consider streaming parser if needed.
+- Schematic reference: `Data/SCH_Schematic1_2_2026-02-23.pdf`
+
+## Future Features (TODO)
+
+- **APRS** — SA818 發送/接收 APRS 封包（位置報告、緊急求救）
+- **BLE 連接手機** — 手機 APP 傳送航點/接收 GPS 資料
+- **A2DP** — Bluetooth audio streaming
+- **軌跡記錄** — 自動記錄 GPS 軌跡到 SPIFFS，事後下載
+- **電池電量校準** — ADC 讀取電池電壓，StatusBar 顯示百分比
+- **緊急求救** — 長按 PTT 發送預設 APRS 緊急訊息
+- **高度剖面圖** — GPX 軌跡的海拔變化圖
+- **多語言** — 中/英切換
+- **WebGUI 即時地圖** — 瀏覽器端用 Leaflet 顯示 GPS 位置 + GPX 軌跡

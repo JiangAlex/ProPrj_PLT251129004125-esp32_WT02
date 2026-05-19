@@ -1,5 +1,6 @@
 #include "StartUpView.h"
 #include "App/Configs/Version.h"
+#include "App/Common/HAL/HAL.h"
 
 using namespace Page;
 
@@ -76,8 +77,16 @@ void StartupView::Create(lv_obj_t *root)
     lv_obj_t* dateLabel = lv_label_create(bottomBar);
     lv_obj_set_style_text_font(dateLabel, &lv_font_unscii_8, 0);
     lv_obj_set_style_text_color(dateLabel, lv_color_white(), 0);
-    lv_label_set_text(dateLabel, "SAT 12/17");
-    lv_obj_align(dateLabel, LV_ALIGN_BOTTOM_MID, 0, -2); // Align to bottom middle with a small offset
+
+    // Get real date from clock
+    Clock_Info_t clockInfo;
+    HAL::Clock_GetInfo(&clockInfo);
+    static const char* weekShort[] = {"SUN","MON","TUE","WED","THU","FRI","SAT"};
+    char dateBuf[16];
+    snprintf(dateBuf, sizeof(dateBuf), "%s %d/%d",
+             weekShort[clockInfo.week % 7], clockInfo.month, clockInfo.day);
+    lv_label_set_text(dateLabel, dateBuf);
+    lv_obj_align(dateLabel, LV_ALIGN_BOTTOM_MID, 0, -2);
     ui.dateLabel = dateLabel;
 
     // 設置初始選中項目

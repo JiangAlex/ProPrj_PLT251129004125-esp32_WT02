@@ -1,6 +1,11 @@
 #include "HAL.h"
-#include "App/Utils/OTA/ota_updater.h"
 
-void HAL::OTA_Init() {
-	Serial.println("Initializing WiFi...");
+static bool ota_update_available = false;
+
+void HAL::OTA_SetUpdateAvailable(bool available) {
+    ota_update_available = available;
+}
+
+bool HAL::OTA_IsUpdateAvailable() {
+    return ota_update_available;
 }

@@ -3,8 +3,8 @@
 using namespace Page;
 
 enum SysItem {
-    SYS_WIFI = 0, SYS_IP, SYS_HEAP, SYS_BRIGHT, SYS_GPS,
-    SYS_VERSION, SYS_OTA, SYS_RESET_WIFI, SYS_REBOOT
+    SYS_WIFI = 0, SYS_IP, SYS_HEAP, SYS_BRIGHT, SYS_TIMEZONE,
+    SYS_CLOCK_FMT, SYS_GPS, SYS_VERSION, SYS_OTA, SYS_RESET_WIFI, SYS_REBOOT
 };
 
 void SystemView::Create(lv_obj_t *root)
@@ -90,6 +90,12 @@ void SystemView::UpdateView(SystemModel *model)
             case SYS_BRIGHT:
                 snprintf(buf, sizeof(buf), "%sBright: %d", prefix, model->GetBrightness());
                 break;
+            case SYS_TIMEZONE:
+                snprintf(buf, sizeof(buf), "%sTZ: UTC%+d", prefix, model->GetTimezone());
+                break;
+            case SYS_CLOCK_FMT:
+                snprintf(buf, sizeof(buf), "%sClock: %s", prefix, model->Is24Hour() ? "24H" : "12H");
+                break;
             case SYS_GPS:
                 snprintf(buf, sizeof(buf), "%sGPS: %d sat", prefix, model->GetGPSSatellites());
                 break;
@@ -97,7 +103,10 @@ void SystemView::UpdateView(SystemModel *model)
                 snprintf(buf, sizeof(buf), "%sVer: %s", prefix, model->GetVersion());
                 break;
             case SYS_OTA:
-                snprintf(buf, sizeof(buf), "%sOTA Update", prefix);
+                if (model->IsOTAAvailable())
+                    snprintf(buf, sizeof(buf), "%sOTA: NEW *", prefix);
+                else
+                    snprintf(buf, sizeof(buf), "%sOTA Update", prefix);
                 break;
             case SYS_RESET_WIFI:
                 snprintf(buf, sizeof(buf), "%sReset WiFi", prefix);

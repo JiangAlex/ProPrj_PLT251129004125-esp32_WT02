@@ -8,8 +8,8 @@ using namespace Page;
 #define BTN_OK 32
 
 enum SysItem {
-    SYS_WIFI = 0, SYS_IP, SYS_HEAP, SYS_BRIGHT, SYS_GPS,
-    SYS_VERSION, SYS_OTA, SYS_RESET_WIFI, SYS_REBOOT
+    SYS_WIFI = 0, SYS_IP, SYS_HEAP, SYS_BRIGHT, SYS_TIMEZONE,
+    SYS_CLOCK_FMT, SYS_GPS, SYS_VERSION, SYS_OTA, SYS_RESET_WIFI, SYS_REBOOT
 };
 
 System::System() : timer(nullptr), lastBtnTime(0) {}
@@ -66,7 +66,11 @@ void System::handleOK()
 
     switch (sel) {
         case SYS_BRIGHT:
+        case SYS_TIMEZONE:
             View.SetEditMode(true);
+            break;
+        case SYS_CLOCK_FMT:
+            Model.Toggle24Hour();
             break;
         case SYS_OTA:
             Model.TriggerOTA();
@@ -98,13 +102,23 @@ void System::onTimer(lv_timer_t *timer)
     inst->lastBtnTime = now;
 
     if (inst->View.IsEditMode()) {
-        // In edit mode: UP/DOWN adjust brightness, OK exits
+        int sel = inst->View.GetSelected();
         if (up) {
-            uint8_t b = inst->Model.GetBrightness();
-            if (b < 8) inst->Model.SetBrightness(b + 1);
+            if (sel == SYS_BRIGHT) {
+                uint8_t b = inst->Model.GetBrightness();
+                if (b < 8) inst->Model.SetBrightness(b + 1);
+            } else if (sel == SYS_TIMEZONE) {
+                int8_t tz = inst->Model.GetTimezone();
+                if (tz < 14) inst->Model.SetTimezone(tz + 1);
+            }
         } else if (down) {
-            uint8_t b = inst->Model.GetBrightness();
-            if (b > 1) inst->Model.SetBrightness(b - 1);
+            if (sel == SYS_BRIGHT) {
+                uint8_t b = inst->Model.GetBrightness();
+                if (b > 1) inst->Model.SetBrightness(b - 1);
+            } else if (sel == SYS_TIMEZONE) {
+                int8_t tz = inst->Model.GetTimezone();
+                if (tz > -12) inst->Model.SetTimezone(tz - 1);
+            }
         } else if (ok) {
             inst->View.SetEditMode(false);
         }

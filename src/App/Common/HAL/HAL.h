@@ -104,6 +104,10 @@ namespace HAL
     void Clock_GetTimeString(char* timeStr, char* battStr);
     bool Clock_SyncNTP();  // NTP 時間同步
     bool Clock_IsSynced(); // 是否已同步
+    void Clock_Set24Hour(bool en);
+    bool Clock_Is24Hour();
+    void Clock_SetTimezone(int8_t tz);
+    int8_t Clock_GetTimezone();
 
     /* GPS */
     void GPS_Init();
@@ -156,6 +160,8 @@ namespace HAL
 
     /* OTA */
     void OTA_Init();
+    void OTA_SetUpdateAvailable(bool available);
+    bool OTA_IsUpdateAvailable();
 
     /* BLE */
     void BLE_Init(void);

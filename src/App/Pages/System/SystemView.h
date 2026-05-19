@@ -7,7 +7,7 @@
 
 namespace Page
 {
-    #define SYS_ITEM_COUNT 9
+    #define SYS_ITEM_COUNT 11
 
     enum SysFunc { SYS_FUNC_OK = 0, SYS_FUNC_BACK, SYS_FUNC_COUNT };
 

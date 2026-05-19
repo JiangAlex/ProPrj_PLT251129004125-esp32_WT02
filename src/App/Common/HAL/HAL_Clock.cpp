@@ -2,9 +2,12 @@
 #include <time.h>
 #include <sys/time.h>
 #include <WiFi.h>
+#include <Preferences.h>
 
 static bool clock_initialized = false;
 static bool clock_synced = false;
+static bool clock_24h = true;
+static int8_t clock_timezone = 8;
 
 // NTP 伺服器設定
 static const char* ntpServer1 = "time.stdtime.gov.tw";  // 台灣標準時間
@@ -16,12 +19,21 @@ void HAL::Clock_Init()
 {
     Serial.println("Initializing clock...");
     
-    // 設定時區為台灣時區 (UTC+8)
-    setenv("TZ", "CST-8", 1);
+    // Load saved settings
+    Preferences prefs;
+    prefs.begin("system", true);
+    clock_timezone = prefs.getChar("tz", 8);
+    clock_24h = prefs.getBool("24h", true);
+    prefs.end();
+    
+    // Apply saved timezone
+    char tzStr[16];
+    snprintf(tzStr, sizeof(tzStr), "UTC%+d", -clock_timezone);
+    setenv("TZ", tzStr, 1);
     tzset();
     
     clock_initialized = true;
-    Serial.println("Clock initialized with Taiwan timezone (UTC+8)");
+    Serial.printf("Clock initialized: TZ=UTC%+d, %s\n", clock_timezone, clock_24h ? "24H" : "12H");
 }
 
 void HAL::Clock_GetInfo(::Clock_Info_t *info)
@@ -153,3 +165,28 @@ bool HAL::Clock_IsSynced()
 {
     return clock_synced;
 }
+
+void HAL::Clock_Set24Hour(bool en) {
+    clock_24h = en;
+    Preferences prefs;
+    prefs.begin("system", false);
+    prefs.putBool("24h", en);
+    prefs.end();
+}
+bool HAL::Clock_Is24Hour() { return clock_24h; }
+
+void HAL::Clock_SetTimezone(int8_t tz) {
+    if (tz < -12) tz = -12;
+    if (tz > 14) tz = 14;
+    clock_timezone = tz;
+    char tzStr[16];
+    snprintf(tzStr, sizeof(tzStr), "UTC%+d", -tz);
+    setenv("TZ", tzStr, 1);
+    tzset();
+    Preferences prefs;
+    prefs.begin("system", false);
+    prefs.putChar("tz", tz);
+    prefs.end();
+}
+
+int8_t HAL::Clock_GetTimezone() { return clock_timezone; }

@@ -62,7 +62,13 @@ static void StatusBar_UpdateTimer(lv_timer_t *timer)
     
     // 格式化時間字串
     char timeBuf[16];
-    snprintf(timeBuf, sizeof(timeBuf), "%02d:%02d", clockInfo.hour, clockInfo.minute);
+    if (HAL::Clock_Is24Hour()) {
+        snprintf(timeBuf, sizeof(timeBuf), "%02d:%02d", clockInfo.hour, clockInfo.minute);
+    } else {
+        int h = clockInfo.hour % 12;
+        if (h == 0) h = 12;
+        snprintf(timeBuf, sizeof(timeBuf), "%2d:%02d%s", h, clockInfo.minute, clockInfo.hour >= 12 ? "P" : "A");
+    }
     lv_label_set_text(ui.labelClock, timeBuf);
     
     // 更新電池（模擬值）
