@@ -32,7 +32,7 @@ void TrekkingView::Create(lv_obj_t *root)
     lv_obj_set_scrollbar_mode(ui_list, LV_SCROLLBAR_MODE_OFF); // 隱藏滾動條但保持滾動
 
     // Create List Items
-    const char* item_labels[] = {"Temp:", "Alt:", "Pres:", "Asc:", "Dist:", "Time:", "Stat:"};
+    const char* item_labels[] = {"Temp:", "Alt:", "Pres:", "Asc:", "Dist:", "Time:", "Stat:", "GPX:", "Profile"};
     for (int i = 0; i < TREKKING_ITEM_COUNT; i++) {
         lv_obj_t* item = lv_label_create(ui_list);
         lv_obj_set_style_text_font(item, &lv_font_unscii_8, 0);
@@ -112,6 +112,16 @@ void TrekkingView::UpdateView(TrekkingModel *model)
             start_text = "[START]";
         }
     }
+
+    int gpxCount = lastModel->GetGPXFileCount();
+    int gpxSel = lastModel->GetGPXSelected();
+    const char* gpxPrefix = !inFuncArea && selectedIndex == TREKKING_ITEM_GPX ? "> " : "  ";
+    if (gpxCount > 0)
+        lv_label_set_text_fmt(ui_items[TREKKING_ITEM_GPX], "%sGPX: %d/%d", gpxPrefix, gpxSel + 1, gpxCount);
+    else
+        lv_label_set_text_fmt(ui_items[TREKKING_ITEM_GPX], "%sGPX: none", gpxPrefix);
+
+    lv_label_set_text_fmt(ui_items[TREKKING_ITEM_PROFILE], "%sProfile >>", !inFuncArea && selectedIndex == TREKKING_ITEM_PROFILE ? "> " : "  ");
 
     char func_buf[32];
     if (inFuncArea) {

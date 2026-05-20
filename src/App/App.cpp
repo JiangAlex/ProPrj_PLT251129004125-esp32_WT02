@@ -46,6 +46,7 @@ void App_Init()
     manager.Install("Radio",   "Pages/Radio");
     manager.Install("Trekking","Pages/Trekking");
     manager.Install("Map",     "Pages/Map");
+    manager.Install("Profile", "Pages/Profile");
     manager.Install("System", "Pages/System");
     manager.Install("Status",  "Pages/Status");
     manager.SetGlobalLoadAnimType(PageManager::LOAD_ANIM_OVER_TOP, 500);

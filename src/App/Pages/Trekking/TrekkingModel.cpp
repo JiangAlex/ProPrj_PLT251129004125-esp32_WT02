@@ -1,7 +1,10 @@
 #include "TrekkingModel.h"
 #include <Arduino.h>
+#include <SPIFFS.h>
 
 using namespace Page;
+
+String TrekkingModel::activeGPXPath = "";
 
 TrekkingModel::TrekkingModel()
 {
@@ -15,10 +18,14 @@ TrekkingModel::TrekkingModel()
     startAlt = 0.0f;
     totalAscent = 0.0f;
     currentDist = 0.0f;
-    startSteps = 0;
-    currentSteps = 0;
     currentTemp = 0.0f;
     currentPress = 0.0f;
+    prevLat = 0.0;
+    prevLon = 0.0;
+    prevAlt = 0.0f;
+    lastValid = false;
+    gpxFileCount = 0;
+    gpxSelected = 0;
 }
 
 void TrekkingModel::Init()
@@ -31,7 +38,6 @@ void TrekkingModel::Init()
     // 初始化讀取一次感測器
     UpdateSensors();
     startAlt = currentAlt;
-    startSteps = currentSteps;
 }
 
 void TrekkingModel::Deinit()
@@ -46,14 +52,27 @@ void TrekkingModel::Update()
 {
     UpdateSensors();
     
-    if (isRecording) {
-        // 這裡實作距離和爬升的累計邏輯
-        // 範例：簡單模擬數據變化
-        // currentDist += 0.001f; 
-        
-        if (currentAlt > startAlt) {
-            // 簡單計算爬升 (實際應考慮雜訊過濾)
-            // totalAscent += (currentAlt - lastAlt);
+    if (isRecording && lastValid) {
+        // Accumulate distance from GPS
+        GPS_Info_t gpsInfo;
+        if (HAL::GPS_GetInfo(&gpsInfo) && gpsInfo.isValid) {
+            if (prevLat != 0.0 || prevLon != 0.0) {
+                double d = HAL::GPS_GetDistanceOffset(&gpsInfo, prevLon, prevLat);
+                if (d > 2.0) { // Filter GPS noise (>2m)
+                    currentDist += d / 1000.0; // to km
+                    // Ascent tracking
+                    if (gpsInfo.altitude > prevAlt + 1.0) {
+                        totalAscent += (gpsInfo.altitude - prevAlt);
+                    }
+                    prevLat = gpsInfo.latitude;
+                    prevLon = gpsInfo.longitude;
+                    prevAlt = gpsInfo.altitude;
+                }
+            } else {
+                prevLat = gpsInfo.latitude;
+                prevLon = gpsInfo.longitude;
+                prevAlt = gpsInfo.altitude;
+            }
         }
     }
 }
@@ -62,14 +81,14 @@ void TrekkingModel::StartRecord()
 {
     if (!isRecording) {
         if (startTime == 0) {
-            // 第一次開始
             startTime = millis();
             startAlt = currentAlt;
-            startSteps = currentSteps;
             totalAscent = 0;
             currentDist = 0;
+            prevLat = 0.0;
+            prevLon = 0.0;
+            prevAlt = currentAlt;
         } else {
-            // 從暫停恢復
             if (pauseTime > 0) {
                 totalPauseTime += (millis() - pauseTime);
                 pauseTime = 0;
@@ -120,27 +139,58 @@ float TrekkingModel::GetTemperature() { return currentTemp; }
 float TrekkingModel::GetPressure() { return currentPress; }
 float TrekkingModel::GetAscent() { return totalAscent; }
 
-uint32_t TrekkingModel::GetSteps() {
-    if (currentSteps >= startSteps)
-        return currentSteps - startSteps;
-    return 0;
+int TrekkingModel::GetGPXFileCount() {
+    gpxFileCount = 0;
+    File idx = SPIFFS.open("/gpx/index.txt", "r");
+    if (idx) {
+        while (idx.available()) {
+            idx.readStringUntil('\n');
+            gpxFileCount++;
+        }
+        idx.close();
+    }
+    return gpxFileCount;
+}
+
+int TrekkingModel::GetGPXSelected() { return gpxSelected; }
+
+void TrekkingModel::SetGPXSelected(int idx) {
+    int count = GetGPXFileCount();
+    if (count == 0) return;
+    if (idx < 0) idx = count - 1;
+    if (idx >= count) idx = 0;
+    gpxSelected = idx;
+    activeGPXPath = GetGPXPath();
+}
+
+String TrekkingModel::GetGPXPath() {
+    File idx = SPIFFS.open("/gpx/index.txt", "r");
+    if (!idx) return "";
+    int lineNum = 0;
+    while (idx.available()) {
+        String line = idx.readStringUntil('\n');
+        line.trim();
+        if (lineNum == gpxSelected) {
+            idx.close();
+            int num = line.toInt();
+            char path[32];
+            snprintf(path, sizeof(path), "/gpx/%03d.bin", num);
+            return String(path);
+        }
+        lineNum++;
+    }
+    idx.close();
+    return "";
 }
 
 void TrekkingModel::UpdateSensors()
 {
-    // 獲取 GPS 數據
-    // GPS_Info_t gpsInfo;
-    // if (HAL::GPS_GetInfo(&gpsInfo)) {
-    //     currentAlt = gpsInfo.altitude;
-    // } else {
-        // 模擬數據
-        currentAlt = 100.0f; 
-    // }
-
-    // 獲取其他感測器數據 (待 HAL 完善)
-    currentTemp = 25.5f;   // Placeholder
-    currentPress = 1013.0f; // Placeholder
-    
-    // 模擬步數增加
-    // currentSteps++;
+    GPS_Info_t gpsInfo;
+    if (HAL::GPS_GetInfo(&gpsInfo) && gpsInfo.isValid) {
+        currentAlt = gpsInfo.altitude;
+        lastValid = true;
+    }
+    // No temp/pressure sensor yet
+    currentTemp = 0.0f;
+    currentPress = 0.0f;
 }

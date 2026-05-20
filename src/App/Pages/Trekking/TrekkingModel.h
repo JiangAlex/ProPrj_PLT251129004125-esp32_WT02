@@ -26,7 +26,15 @@ public:
     float GetTemperature();
     float GetPressure();
     float GetAscent();
-    uint32_t GetSteps();
+
+    // GPX file selection
+    int GetGPXFileCount();
+    int GetGPXSelected();
+    void SetGPXSelected(int idx);
+    String GetGPXPath();
+
+    // Static access for Profile page
+    static String activeGPXPath;
 
 private:
     Account* account;
@@ -42,12 +50,20 @@ private:
     float startAlt;
     float totalAscent;
     float currentDist;
-    uint32_t startSteps;
-    uint32_t currentSteps;
     
     // 環境數據
     float currentTemp;
     float currentPress;
+    
+    // GPS tracking
+    double prevLat;
+    double prevLon;
+    float prevAlt;
+    bool lastValid;
+
+    // GPX file selection
+    int gpxFileCount;
+    int gpxSelected;
 
     void UpdateSensors();
 };

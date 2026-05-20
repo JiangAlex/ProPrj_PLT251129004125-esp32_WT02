@@ -10,7 +10,7 @@ namespace Page
     #define MAX_WAYPOINTS 50
     #define WPT_NAME_LEN 12
 
-    struct TrackPoint { float lat; float lon; };
+    struct TrackPoint { float lat; float lon; float ele; };
     struct Waypoint { float lat; float lon; char name[WPT_NAME_LEN]; };
 
     class MapModel

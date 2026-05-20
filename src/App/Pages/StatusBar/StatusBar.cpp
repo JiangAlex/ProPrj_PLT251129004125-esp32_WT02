@@ -73,10 +73,14 @@ static void StatusBar_UpdateTimer(lv_timer_t *timer)
     
     // 更新電池（模擬值）
     if (ui.battery.label) {
-        int battPercent = 85 + (millis() / 60000) % 15;  // 模擬電池
-        char battBuf[16];
-        snprintf(battBuf, sizeof(battBuf), "%d%%", battPercent);
-        lv_label_set_text(ui.battery.label, battBuf);
+        if (HAL::PTT_IsPressed()) {
+            lv_label_set_text(ui.battery.label, "TX");
+        } else {
+            int battPercent = 85 + (millis() / 60000) % 15;
+            char battBuf[16];
+            snprintf(battBuf, sizeof(battBuf), "%d%%", battPercent);
+            lv_label_set_text(ui.battery.label, battBuf);
+        }
     }
 }
 

@@ -2,49 +2,25 @@
 
 using namespace Page;
 
-// Canvas buffer for 128x34 monochrome (1 bit per pixel)
-uint8_t MapView::canvas_buf[128 * 34 / 8 + 128]; // Extra for LVGL alignment
+lv_color_t MapView::canvas_buf[128 * 64];
 
 void MapView::Create(lv_obj_t *root)
 {
     ui_root = root;
     lv_obj_clean(root);
     lv_obj_remove_style_all(root);
-    lv_obj_set_size(root, 128, 48);
-    lv_obj_set_pos(root, 0, 16);
+    lv_obj_set_size(root, 128, 64);
+    lv_obj_set_pos(root, 0, 0); // Fullscreen, no StatusBar
     lv_obj_set_style_bg_color(root, lv_color_black(), 0);
     lv_obj_set_style_bg_opa(root, LV_OPA_COVER, 0);
-    lv_obj_set_style_pad_all(root, 0, 0);
 
-    // Canvas (top 24px for map drawing)
+    // Canvas fullscreen
     ui_canvas = lv_canvas_create(root);
-    lv_canvas_set_buffer(ui_canvas, canvas_buf, CW, 24, LV_IMG_CF_ALPHA_1BIT);
+    lv_canvas_set_buffer(ui_canvas, canvas_buf, CW, CH, LV_IMG_CF_TRUE_COLOR);
     lv_obj_set_pos(ui_canvas, 0, 0);
-    lv_canvas_fill_bg(ui_canvas, lv_color_black(), LV_OPA_COVER);
 
-    // Info label (10px below canvas)
-    ui_info = lv_label_create(root);
-    lv_obj_set_style_text_font(ui_info, &lv_font_unscii_8, 0);
-    lv_obj_set_style_text_color(ui_info, lv_color_white(), 0);
-    lv_obj_set_pos(ui_info, 0, 24);
-    lv_obj_set_width(ui_info, 128);
-    lv_label_set_text(ui_info, "  GPS: No Fix");
-
-    // FuncBar (14px)
-    ui_func_bar = lv_obj_create(root);
-    lv_obj_remove_style_all(ui_func_bar);
-    lv_obj_set_size(ui_func_bar, 128, 14);
-    lv_obj_set_pos(ui_func_bar, 0, 34);
-    lv_obj_set_style_bg_opa(ui_func_bar, LV_OPA_TRANSP, 0);
-
-    lbl_func = lv_label_create(ui_func_bar);
-    lv_obj_set_style_text_font(lbl_func, &lv_font_unscii_8, 0);
-    lv_obj_set_style_text_color(lbl_func, lv_color_white(), 0);
-    lv_label_set_text(lbl_func, "  [WPT]    [BACK]");
-    lv_obj_align(lbl_func, LV_ALIGN_LEFT_MID, 0, 0);
-
-    inFuncArea = false;
-    funcSelectedIndex = 0;
+    // Mode indicator (top-right corner, drawn on canvas)
+    ui_mode = nullptr; // We'll draw mode directly on canvas
 }
 
 void MapView::Delete()
@@ -52,201 +28,156 @@ void MapView::Delete()
     if (ui_root) { lv_obj_clean(ui_root); ui_root = nullptr; }
 }
 
-void MapView::UpdateView(MapModel *model)
+void MapView::Draw(MapModel *model, float centerLat, float centerLon, float zoom, int trackIdx, MapMode mode)
 {
-    if (!model || !ui_root) return;
+    if (!ui_canvas) return;
 
-    DrawMap(model);
+    // Calculate view bounds from center + zoom
+    // zoom = degrees of latitude visible in the view
+    float halfLat = zoom / 2.0f;
+    float halfLon = (zoom / 2.0f) * (128.0f / 64.0f); // Aspect ratio correction
+    float minLat = centerLat - halfLat;
+    float maxLat = centerLat + halfLat;
+    float minLon = centerLon - halfLon;
+    float maxLon = centerLon + halfLon;
 
-    // Update info line
-    GPS_Info_t gps;
-    model->GetGPSInfo(&gps);
-
-    char buf[32];
-    if (model->GetWaypointCount() > 0 && gps.isValid) {
-        float dist = model->GetDistanceToTarget();
-        float bearing = model->GetBearingToTarget();
-        Waypoint *wp = &model->GetWaypoints()[model->GetTargetWpt()];
-        if (dist > 1000)
-            snprintf(buf, sizeof(buf), "  %s %.1fkm %s", wp->name, dist/1000, BearingToCardinal(bearing));
-        else
-            snprintf(buf, sizeof(buf), "  %s %dm %s", wp->name, (int)dist, BearingToCardinal(bearing));
-    } else if (gps.isValid) {
-        snprintf(buf, sizeof(buf), "  %.4f,%.4f %dsat", gps.latitude, gps.longitude, gps.satellites);
-    } else {
-        snprintf(buf, sizeof(buf), "  GPS: No Fix (%d sat)", gps.satellites);
-    }
-    lv_label_set_text(ui_info, buf);
-
-    // FuncBar
-    if (inFuncArea) {
-        if (funcSelectedIndex == MAP_FUNC_WPT)
-            lv_label_set_text(lbl_func, "> [WPT]    [BACK]");
-        else
-            lv_label_set_text(lbl_func, "  [WPT]  > [BACK]");
-    } else {
-        lv_label_set_text(lbl_func, "  [WPT]    [BACK]");
-    }
-}
-
-void MapView::DrawMap(MapModel *model)
-{
     // Clear canvas
     lv_canvas_fill_bg(ui_canvas, lv_color_black(), LV_OPA_COVER);
 
-    if (model->GetTrackCount() > 0) {
-        DrawTrack(model);
+    // Draw track
+    if (model->GetTrackCount() > 1) {
+        DrawTrack(model, minLat, maxLat, minLon, maxLon);
     }
+
+    // Draw waypoints
     if (model->GetWaypointCount() > 0) {
-        DrawWaypoints(model);
+        DrawWaypoints(model, minLat, maxLat, minLon, maxLon);
     }
-    DrawPosition(model);
+
+    // Draw GPS position
+    DrawPosition(model, minLat, maxLat, minLon, maxLon);
+
+    // Draw current track position marker (small square on track)
+    if (model->GetTrackCount() > 1 && trackIdx >= 0 && trackIdx < model->GetTrackCount()) {
+        TrackPoint *pts = model->GetTrackPoints();
+        int px = (int)((pts[trackIdx].lon - minLon) / (maxLon - minLon) * (CW - 1));
+        int py = (CH - 1) - (int)((pts[trackIdx].lat - minLat) / (maxLat - minLat) * (CH - 1));
+        // Draw small crosshair
+        for (int d = -2; d <= 2; d++) {
+            if (px+d >= 0 && px+d < CW) lv_canvas_set_px_color(ui_canvas, px+d, py, lv_color_white());
+            if (py+d >= 0 && py+d < CH) lv_canvas_set_px_color(ui_canvas, px, py+d, lv_color_white());
+        }
+    }
+
+    // Draw mode indicator top-right
+    const char *modeChar = (mode == MAP_MODE_PAN) ? "P" : "Z";
+    // Draw simple character at top-right (pixel font approximation)
+    // P = Pan, Z = Zoom - use canvas set_px for a 3x5 pixel letter
+    int ox = CW - 5, oy = 1;
+    if (mode == MAP_MODE_PAN) {
+        // P shape
+        lv_canvas_set_px_color(ui_canvas, ox, oy, lv_color_white());
+        lv_canvas_set_px_color(ui_canvas, ox, oy+1, lv_color_white());
+        lv_canvas_set_px_color(ui_canvas, ox, oy+2, lv_color_white());
+        lv_canvas_set_px_color(ui_canvas, ox, oy+3, lv_color_white());
+        lv_canvas_set_px_color(ui_canvas, ox, oy+4, lv_color_white());
+        lv_canvas_set_px_color(ui_canvas, ox+1, oy, lv_color_white());
+        lv_canvas_set_px_color(ui_canvas, ox+2, oy, lv_color_white());
+        lv_canvas_set_px_color(ui_canvas, ox+2, oy+1, lv_color_white());
+        lv_canvas_set_px_color(ui_canvas, ox+1, oy+2, lv_color_white());
+    } else {
+        // Z shape
+        lv_canvas_set_px_color(ui_canvas, ox, oy, lv_color_white());
+        lv_canvas_set_px_color(ui_canvas, ox+1, oy, lv_color_white());
+        lv_canvas_set_px_color(ui_canvas, ox+2, oy, lv_color_white());
+        lv_canvas_set_px_color(ui_canvas, ox+2, oy+1, lv_color_white());
+        lv_canvas_set_px_color(ui_canvas, ox+1, oy+2, lv_color_white());
+        lv_canvas_set_px_color(ui_canvas, ox, oy+3, lv_color_white());
+        lv_canvas_set_px_color(ui_canvas, ox, oy+4, lv_color_white());
+        lv_canvas_set_px_color(ui_canvas, ox+1, oy+4, lv_color_white());
+        lv_canvas_set_px_color(ui_canvas, ox+2, oy+4, lv_color_white());
+    }
 }
 
-void MapView::DrawTrack(MapModel *model)
+void MapView::DrawTrack(MapModel *model, float minLat, float maxLat, float minLon, float maxLon)
 {
     int count = model->GetTrackCount();
-    if (count < 2) return;
-
     TrackPoint *pts = model->GetTrackPoints();
-
-    // Calculate bounding box
-    float minLat = pts[0].lat, maxLat = pts[0].lat;
-    float minLon = pts[0].lon, maxLon = pts[0].lon;
-    for (int i = 1; i < count; i++) {
-        if (pts[i].lat < minLat) minLat = pts[i].lat;
-        if (pts[i].lat > maxLat) maxLat = pts[i].lat;
-        if (pts[i].lon < minLon) minLon = pts[i].lon;
-        if (pts[i].lon > maxLon) maxLon = pts[i].lon;
-    }
-
-    // Add 10% margin
-    float dLat = (maxLat - minLat) * 0.1f;
-    float dLon = (maxLon - minLon) * 0.1f;
-    if (dLat < 0.0001f) dLat = 0.001f;
-    if (dLon < 0.0001f) dLon = 0.001f;
-    minLat -= dLat; maxLat += dLat;
-    minLon -= dLon; maxLon += dLon;
-
-    float scaleX = (CW - 1) / (maxLon - minLon);
-    float scaleY = (24 - 1) / (maxLat - minLat);
-
-    // Draw lines
-    lv_draw_line_dsc_t line_dsc;
-    lv_draw_line_dsc_init(&line_dsc);
-    line_dsc.color = lv_color_white();
-    line_dsc.width = 1;
+    float rangeX = maxLon - minLon;
+    float rangeY = maxLat - minLat;
 
     for (int i = 1; i < count; i++) {
-        lv_point_t p[2];
-        p[0].x = (lv_coord_t)((pts[i-1].lon - minLon) * scaleX);
-        p[0].y = 23 - (lv_coord_t)((pts[i-1].lat - minLat) * scaleY);
-        p[1].x = (lv_coord_t)((pts[i].lon - minLon) * scaleX);
-        p[1].y = 23 - (lv_coord_t)((pts[i].lat - minLat) * scaleY);
-        lv_canvas_draw_line(ui_canvas, p, 2, &line_dsc);
+        int x0 = (int)((pts[i-1].lon - minLon) / rangeX * (CW - 1));
+        int y0 = (CH-1) - (int)((pts[i-1].lat - minLat) / rangeY * (CH - 1));
+        int x1 = (int)((pts[i].lon - minLon) / rangeX * (CW - 1));
+        int y1 = (CH-1) - (int)((pts[i].lat - minLat) / rangeY * (CH - 1));
+
+        // Clip: skip if both points far outside
+        if ((x0 < -CW && x1 < -CW) || (x0 > 2*CW && x1 > 2*CW)) continue;
+        if ((y0 < -CH && y1 < -CH) || (y0 > 2*CH && y1 > 2*CH)) continue;
+
+        // Bresenham line
+        int dx = abs(x1 - x0), sx = x0 < x1 ? 1 : -1;
+        int dy = -abs(y1 - y0), sy = y0 < y1 ? 1 : -1;
+        int err = dx + dy;
+        int steps = 0;
+        while (steps++ < 300) {
+            if (x0 >= 0 && x0 < CW && y0 >= 0 && y0 < CH)
+                lv_canvas_set_px_color(ui_canvas, x0, y0, lv_color_white());
+            if (x0 == x1 && y0 == y1) break;
+            int e2 = 2 * err;
+            if (e2 >= dy) { err += dy; x0 += sx; }
+            if (e2 <= dx) { err += dx; y0 += sy; }
+        }
     }
 }
 
-void MapView::DrawPosition(MapModel *model)
+void MapView::DrawPosition(MapModel *model, float minLat, float maxLat, float minLon, float maxLon)
 {
     GPS_Info_t gps;
     model->GetGPSInfo(&gps);
     if (!gps.isValid) return;
 
-    int count = model->GetTrackCount();
-    if (count < 2) {
-        // No track: draw position at center
-        lv_canvas_set_px_color(ui_canvas, 64, 12, lv_color_white());
-        lv_canvas_set_px_color(ui_canvas, 63, 13, lv_color_white());
-        lv_canvas_set_px_color(ui_canvas, 64, 13, lv_color_white());
-        lv_canvas_set_px_color(ui_canvas, 65, 13, lv_color_white());
-        lv_canvas_set_px_color(ui_canvas, 64, 14, lv_color_white());
-        return;
-    }
+    float rangeX = maxLon - minLon;
+    float rangeY = maxLat - minLat;
 
-    // Map GPS position to canvas using same bounding box as track
-    TrackPoint *pts = model->GetTrackPoints();
-    float minLat = pts[0].lat, maxLat = pts[0].lat;
-    float minLon = pts[0].lon, maxLon = pts[0].lon;
-    for (int i = 1; i < count; i++) {
-        if (pts[i].lat < minLat) minLat = pts[i].lat;
-        if (pts[i].lat > maxLat) maxLat = pts[i].lat;
-        if (pts[i].lon < minLon) minLon = pts[i].lon;
-        if (pts[i].lon > maxLon) maxLon = pts[i].lon;
-    }
-    float dLat = (maxLat - minLat) * 0.1f;
-    float dLon = (maxLon - minLon) * 0.1f;
-    if (dLat < 0.0001f) dLat = 0.001f;
-    if (dLon < 0.0001f) dLon = 0.001f;
-    minLat -= dLat; maxLat += dLat;
-    minLon -= dLon; maxLon += dLon;
+    int px = (int)((gps.longitude - minLon) / rangeX * (CW - 1));
+    int py = (CH-1) - (int)((gps.latitude - minLat) / rangeY * (CH - 1));
 
-    int px = (int)((gps.longitude - minLon) / (maxLon - minLon) * (CW - 1));
-    int py = 23 - (int)((gps.latitude - minLat) / (maxLat - minLat) * 23);
+    // Clamp to screen edges
+    if (px < 2) px = 2;
+    if (px > CW - 3) px = CW - 3;
+    if (py < 2) py = 2;
+    if (py > CH - 3) py = CH - 3;
 
-    // Draw ▲ (3x3 triangle)
-    if (px >= 0 && px < CW && py >= 1 && py < 23) {
-        lv_canvas_set_px_color(ui_canvas, px, py-1, lv_color_white());
-        if (px > 0) lv_canvas_set_px_color(ui_canvas, px-1, py, lv_color_white());
-        lv_canvas_set_px_color(ui_canvas, px, py, lv_color_white());
-        if (px < CW-1) lv_canvas_set_px_color(ui_canvas, px+1, py, lv_color_white());
-        if (px > 0) lv_canvas_set_px_color(ui_canvas, px-1, py+1, lv_color_white());
-        lv_canvas_set_px_color(ui_canvas, px, py+1, lv_color_white());
-        if (px < CW-1) lv_canvas_set_px_color(ui_canvas, px+1, py+1, lv_color_white());
-    }
+    // Draw ▲
+    lv_canvas_set_px_color(ui_canvas, px, py-2, lv_color_white());
+    lv_canvas_set_px_color(ui_canvas, px-1, py-1, lv_color_white());
+    lv_canvas_set_px_color(ui_canvas, px, py-1, lv_color_white());
+    lv_canvas_set_px_color(ui_canvas, px+1, py-1, lv_color_white());
+    lv_canvas_set_px_color(ui_canvas, px-2, py, lv_color_white());
+    lv_canvas_set_px_color(ui_canvas, px-1, py, lv_color_white());
+    lv_canvas_set_px_color(ui_canvas, px, py, lv_color_white());
+    lv_canvas_set_px_color(ui_canvas, px+1, py, lv_color_white());
+    lv_canvas_set_px_color(ui_canvas, px+2, py, lv_color_white());
 }
 
-void MapView::DrawWaypoints(MapModel *model)
+void MapView::DrawWaypoints(MapModel *model, float minLat, float maxLat, float minLon, float maxLon)
 {
-    int count = model->GetTrackCount();
-    if (count < 2) return;
-
-    TrackPoint *pts = model->GetTrackPoints();
-    float minLat = pts[0].lat, maxLat = pts[0].lat;
-    float minLon = pts[0].lon, maxLon = pts[0].lon;
-    for (int i = 1; i < count; i++) {
-        if (pts[i].lat < minLat) minLat = pts[i].lat;
-        if (pts[i].lat > maxLat) maxLat = pts[i].lat;
-        if (pts[i].lon < minLon) minLon = pts[i].lon;
-        if (pts[i].lon > maxLon) maxLon = pts[i].lon;
-    }
-    float dLat = (maxLat - minLat) * 0.1f;
-    float dLon = (maxLon - minLon) * 0.1f;
-    if (dLat < 0.0001f) dLat = 0.001f;
-    if (dLon < 0.0001f) dLon = 0.001f;
-    minLat -= dLat; maxLat += dLat;
-    minLon -= dLon; maxLon += dLon;
-
+    float rangeX = maxLon - minLon;
+    float rangeY = maxLat - minLat;
     Waypoint *wps = model->GetWaypoints();
-    int target = model->GetTargetWpt();
 
     for (int i = 0; i < model->GetWaypointCount(); i++) {
-        int px = (int)((wps[i].lon - minLon) / (maxLon - minLon) * (CW - 1));
-        int py = 23 - (int)((wps[i].lat - minLat) / (maxLat - minLat) * 23);
-        if (px < 0 || px >= CW || py < 0 || py >= 24) continue;
+        int px = (int)((wps[i].lon - minLon) / rangeX * (CW - 1));
+        int py = (CH-1) - (int)((wps[i].lat - minLat) / rangeY * (CH - 1));
+        if (px < 0 || px >= CW || py < 0 || py >= CH) continue;
 
-        // Draw dot (target = larger)
+        // Draw + cross
         lv_canvas_set_px_color(ui_canvas, px, py, lv_color_white());
-        if (i == target) {
-            if (px > 0) lv_canvas_set_px_color(ui_canvas, px-1, py, lv_color_white());
-            if (px < CW-1) lv_canvas_set_px_color(ui_canvas, px+1, py, lv_color_white());
-            if (py > 0) lv_canvas_set_px_color(ui_canvas, px, py-1, lv_color_white());
-            if (py < 23) lv_canvas_set_px_color(ui_canvas, px, py+1, lv_color_white());
-        }
+        if (px > 0) lv_canvas_set_px_color(ui_canvas, px-1, py, lv_color_white());
+        if (px < CW-1) lv_canvas_set_px_color(ui_canvas, px+1, py, lv_color_white());
+        if (py > 0) lv_canvas_set_px_color(ui_canvas, px, py-1, lv_color_white());
+        if (py < CH-1) lv_canvas_set_px_color(ui_canvas, px, py+1, lv_color_white());
     }
-}
-
-const char* MapView::BearingToCardinal(float bearing)
-{
-    static const char* dirs[] = {"N","NE","E","SE","S","SW","W","NW"};
-    int idx = (int)((bearing + 22.5f) / 45.0f) % 8;
-    return dirs[idx];
-}
-
-void MapView::EnterFuncArea() { inFuncArea = true; funcSelectedIndex = 0; }
-void MapView::ExitFuncArea() { inFuncArea = false; }
-void MapView::SetFuncSelected(int index) {
-    if (index < 0) index = 0;
-    if (index >= MAP_FUNC_COUNT) index = MAP_FUNC_COUNT - 1;
-    funcSelectedIndex = index;
 }

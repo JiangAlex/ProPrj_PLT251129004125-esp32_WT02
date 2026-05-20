@@ -31,12 +31,11 @@ void Trekking::onViewLoad()
     Model.Init();
     View.Create(root);
 
-    // Reset all state variables to their initial values for robustness
-    isEntryMode = true;
+    isEntryMode = false;
     pressStartTime = 0;
     isLongPressHandled = false;
     lastBtnTime = 0;
-    View.SetEntryMode(true);
+    View.SetEntryMode(false);
     
     // 確保按鍵 GPIO 模式正確
     pinMode(BTN_UP, INPUT_PULLUP);
@@ -79,10 +78,7 @@ void Trekking::onTimer(lv_timer_t *timer)
 {
     Trekking *instance = (Trekking *)timer->user_data;
     instance->Model.Update();
-    // UpdateView will be called regardless, which handles redraws
-    if (!instance->isEntryMode) {
-        instance->View.UpdateView(&instance->Model);
-    }
+    instance->View.UpdateView(&instance->Model);
 
     // Button handling
     const uint32_t DEBOUNCE_MS = 150;
@@ -96,36 +92,36 @@ void Trekking::onTimer(lv_timer_t *timer)
             instance->pressStartTime = now;
             instance->isLongPressHandled = false;
         } else if (!instance->isLongPressHandled && (now - instance->pressStartTime > 3000)) {
-            // Long press action
-            if (!instance->isEntryMode) {
-                Serial.println("[Trekking] BACK to Menu (Long Press)");
-                instance->Manager->Pop();
-            }
+            // Long press = STOP (reset all data)
+            instance->Model.StopRecord();
+            Serial.println("[Trekking] STOP (Long Press)");
             instance->isLongPressHandled = true; // Prevent short press action on release
         }
     } else { // Not pressed
         if (instance->pressStartTime != 0) { // Was pressed, now released
             if (!instance->isLongPressHandled) {
-                // Short press action
-                if (instance->isEntryMode) {
-                    instance->isEntryMode = false;
-                    instance->View.SetEntryMode(false);
-                    Serial.println("[Trekking] Entered Data View");
+                // Short press OK
+                if (!instance->View.IsInFuncArea()) {
+                    int sel = instance->View.GetSelected();
+                    if (sel == TrekkingView::TREKKING_ITEM_PROFILE) {
+                        instance->Manager->Push("Pages/Profile");
+                    } else if (sel == TrekkingView::TREKKING_ITEM_GPX) {
+                        int next = instance->Model.GetGPXSelected() + 1;
+                        instance->Model.SetGPXSelected(next);
+                    }
                 } else {
-                    if (instance->View.IsInFuncArea()) {
-                        int func = instance->View.GetFuncSelected();
-                        if (func == TrekkingView::TREKKING_FUNC_START) {
-                            if (instance->Model.IsRecording()) {
-                                instance->Model.PauseRecord();
-                                Serial.println("[Trekking] Action: PAUSE");
-                            } else {
-                                instance->Model.StartRecord();
-                                Serial.println("[Trekking] Action: RESUME/START");
-                            }
-                        } else if (func == TrekkingView::TREKKING_FUNC_BACK) {
-                            Serial.println("[Trekking] Action: BACK");
-                            instance->Manager->Pop();
+                    int func = instance->View.GetFuncSelected();
+                    if (func == TrekkingView::TREKKING_FUNC_START) {
+                        if (instance->Model.IsRecording()) {
+                            instance->Model.PauseRecord();
+                            Serial.println("[Trekking] Action: PAUSE");
+                        } else {
+                            instance->Model.StartRecord();
+                            Serial.println("[Trekking] Action: RESUME/START");
                         }
+                    } else if (func == TrekkingView::TREKKING_FUNC_BACK) {
+                        Serial.println("[Trekking] Action: BACK");
+                        instance->Manager->Pop();
                     }
                 }
             }
@@ -135,33 +131,31 @@ void Trekking::onTimer(lv_timer_t *timer)
 
     // UP/DOWN button logic (simple debounce)
     if (now - instance->lastBtnTime > DEBOUNCE_MS) {
-        if (!instance->isEntryMode) {
-            if (digitalRead(BTN_UP) == LOW) {
-                if (instance->View.IsInFuncArea()) {
-                    instance->View.ExitFuncArea();
-                    instance->View.SetSelected(instance->View.GetItemCount() - 1);
-                } else {
-                    int sel = instance->View.GetSelected();
-                    if (sel > 0) {
-                        instance->View.SetSelected(sel - 1);
-                    }
+        if (digitalRead(BTN_UP) == LOW) {
+            if (instance->View.IsInFuncArea()) {
+                instance->View.ExitFuncArea();
+                instance->View.SetSelected(instance->View.GetItemCount() - 1);
+            } else {
+                int sel = instance->View.GetSelected();
+                if (sel > 0) {
+                    instance->View.SetSelected(sel - 1);
                 }
-                instance->lastBtnTime = now;
-            } else if (digitalRead(BTN_DOWN) == LOW) {
-                if (instance->View.IsInFuncArea()) {
-                    int current = instance->View.GetFuncSelected();
-                    int next = (current == TrekkingView::TREKKING_FUNC_START) ? TrekkingView::TREKKING_FUNC_BACK : TrekkingView::TREKKING_FUNC_START;
-                    instance->View.SetFuncSelected(next);
-                } else {
-                    int sel = instance->View.GetSelected();
-                    if (sel < instance->View.GetItemCount() - 1) {
-                        instance->View.SetSelected(sel + 1);
-                    } else {
-                        instance->View.EnterFuncArea();
-                    }
-                }
-                instance->lastBtnTime = now;
             }
+            instance->lastBtnTime = now;
+        } else if (digitalRead(BTN_DOWN) == LOW) {
+            if (instance->View.IsInFuncArea()) {
+                int current = instance->View.GetFuncSelected();
+                int next = (current == TrekkingView::TREKKING_FUNC_START) ? TrekkingView::TREKKING_FUNC_BACK : TrekkingView::TREKKING_FUNC_START;
+                instance->View.SetFuncSelected(next);
+            } else {
+                int sel = instance->View.GetSelected();
+                if (sel < instance->View.GetItemCount() - 1) {
+                    instance->View.SetSelected(sel + 1);
+                } else {
+                    instance->View.EnterFuncArea();
+                }
+            }
+            instance->lastBtnTime = now;
         }
     }
     

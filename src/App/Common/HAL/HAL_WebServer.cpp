@@ -79,17 +79,22 @@ document.addEventListener('keyup',(e)=>{const k=keyMap[e.key];if(k&&connected){w
 connect();
 </script>
 <div style="margin:10px;display:flex;gap:10px;flex-wrap:wrap">
-<div><input type="file" id="gpx" accept=".gpx"><button onclick="uploadGPX()">Upload GPX</button></div>
+<div><input type="file" id="gpx" accept=".gpx"><button onclick="uploadGPX()">Upload GPX</button><button onclick="clearGPX()">Clear All</button></div>
 <div><input type="file" id="fw" accept=".bin"><button onclick="uploadFW()">Upload Firmware</button></div>
 </div>
+<div id="gpxlist" style="margin:5px;font-size:12px;color:#0f0"></div>
 <div id="upstat" style="margin:5px;font-size:12px;color:#ff0"></div>
 <script>
 function uploadGPX(){const f=document.getElementById('gpx').files[0];if(!f)return;
-const fd=new FormData();fd.append('file',f);document.getElementById('upstat').textContent='Uploading GPX...';
-fetch('/upload',{method:'POST',body:fd}).then(r=>r.text()).then(t=>{document.getElementById('upstat').textContent=t}).catch(e=>{document.getElementById('upstat').textContent='Error: '+e})}
+if(f.size>102400){document.getElementById('upstat').textContent='File too large (max 100KB). Use server.py for large GPX.';return;}
+document.getElementById('upstat').textContent='Uploading GPX...';
+fetch('/upload?name='+encodeURIComponent(f.name),{method:'POST',headers:{'Content-Type':'application/octet-stream'},body:f}).then(r=>r.text()).then(t=>{document.getElementById('upstat').textContent=t}).catch(e=>{document.getElementById('upstat').textContent='Error: '+e})}
 function uploadFW(){const f=document.getElementById('fw').files[0];if(!f)return;
 const fd=new FormData();fd.append('file',f);document.getElementById('upstat').textContent='Uploading firmware...';
 fetch('/ota',{method:'POST',body:fd}).then(r=>r.text()).then(t=>{document.getElementById('upstat').textContent=t}).catch(e=>{document.getElementById('upstat').textContent='Error: '+e})}
+function loadGPXList(){fetch('/gpxlist').then(r=>r.text()).then(t=>{document.getElementById('gpxlist').innerHTML='<b>GPX Files:</b><br>'+t.split('\n').filter(l=>l).map(l=>'&bull; '+l).join('<br>')}).catch(e=>{})}
+function clearGPX(){fetch('/gpxclear').then(r=>r.text()).then(t=>{document.getElementById('upstat').textContent=t;loadGPXList()}).catch(e=>{})}
+loadGPXList();
 </script></body></html>
 )rawliteral";
 
@@ -120,8 +125,10 @@ static void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client,
 #define MAX_WPTS 50
 #define WPT_NAME_LEN 12
 
-struct TrkPt { float lat; float lon; };
+struct TrkPt { float lat; float lon; float ele; };
 struct WptData { float lat; float lon; char name[WPT_NAME_LEN]; };
+
+static String gpxSavePath; // Set by upload handler before parseGPX
 
 static bool parseGPX(const String &xml) {
     TrkPt *tracks = (TrkPt*)malloc(MAX_TRACK_PTS * sizeof(TrkPt));
@@ -140,6 +147,15 @@ static bool parseGPX(const String &xml) {
         if (latIdx < 0 || lonIdx < 0) break;
         tracks[tc].lat = xml.substring(latIdx + 5, xml.indexOf("\"", latIdx + 5)).toFloat();
         tracks[tc].lon = xml.substring(lonIdx + 5, xml.indexOf("\"", lonIdx + 5)).toFloat();
+        // Extract elevation
+        int eleIdx = xml.indexOf("<ele>", idx);
+        int nextTrkpt = xml.indexOf("<trkpt", idx + 6);
+        if (eleIdx > 0 && (nextTrkpt < 0 || eleIdx < nextTrkpt)) {
+            int eleEnd = xml.indexOf("</ele>", eleIdx);
+            tracks[tc].ele = xml.substring(eleIdx + 5, eleEnd).toFloat();
+        } else {
+            tracks[tc].ele = 0.0f;
+        }
         tc++;
         pos = idx + 6;
     }
@@ -169,7 +185,7 @@ static bool parseGPX(const String &xml) {
     }
 
     // Save binary
-    File f = SPIFFS.open(GPX_BIN_PATH, "w");
+    File f = SPIFFS.open(gpxSavePath, "w");
     if (!f) { free(tracks); free(wpts); return false; }
     uint16_t tc16 = tc, wc16 = wc;
     f.write((uint8_t*)&tc16, 2);
@@ -196,8 +212,38 @@ void HAL::WebServer_Init() {
 
     // GPX upload endpoint
     server.on("/upload", HTTP_POST, [](AsyncWebServerRequest *request) {
+        // Get original filename from query param (keep percent-encoded for safe storage)
+        String origName = "unnamed.gpx";
+        if (request->hasParam("name")) {
+            // Get the raw URL to extract encoded name
+            origName = request->getParam("name")->value();
+        }
+        
+        // Find next available number
+        int nextNum = 1;
+        File idxFile = SPIFFS.open("/gpx/index.txt", "r");
+        if (idxFile) {
+            while (idxFile.available()) {
+                String line = idxFile.readStringUntil('\n');
+                int n = line.toInt();
+                if (n >= nextNum) nextNum = n + 1;
+            }
+            idxFile.close();
+        }
+        
+        // Set save path
+        char path[32];
+        snprintf(path, sizeof(path), "/gpx/%03d.bin", nextNum);
+        gpxSavePath = String(path);
+        
         if (parseGPX(gpxUploadBuf)) {
-            request->send(200, "text/plain", "GPX OK: " + String(gpxUploadBuf.length()) + " bytes parsed");
+            // Append to index
+            File idx = SPIFFS.open("/gpx/index.txt", "a");
+            if (idx) {
+                idx.printf("%d\n", nextNum);
+                idx.close();
+            }
+            request->send(200, "text/plain", "GPX OK: #" + String(nextNum));
         } else {
             request->send(500, "text/plain", "GPX parse failed");
         }
@@ -205,6 +251,40 @@ void HAL::WebServer_Init() {
     }, NULL, [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t index, size_t total) {
         if (index == 0) gpxUploadBuf = "";
         gpxUploadBuf += String((char*)data, len);
+    });
+
+    // GPX clear all files
+    server.on("/gpxclear", HTTP_GET, [](AsyncWebServerRequest *request) {
+        File root = SPIFFS.open("/gpx");
+        if (root && root.isDirectory()) {
+            File f = root.openNextFile();
+            while (f) {
+                String path = String("/gpx/") + f.name();
+                f.close();
+                SPIFFS.remove(path);
+                f = root.openNextFile();
+            }
+        }
+        SPIFFS.remove("/gpx/index.txt");
+        request->send(200, "text/plain", "GPX files cleared");
+    });
+
+    // GPX file list endpoint
+    server.on("/gpxlist", HTTP_GET, [](AsyncWebServerRequest *request) {
+        String list = "";
+        File idx = SPIFFS.open("/gpx/index.txt", "r");
+        if (idx) {
+            while (idx.available()) {
+                String line = idx.readStringUntil('\n');
+                line.trim();
+                if (line.length() > 0) {
+                    list += "GPX #" + line + "\n";
+                }
+            }
+            idx.close();
+        }
+        if (list.length() == 0) list = "(no files)";
+        request->send(200, "text/plain", list);
     });
 
     // OTA firmware upload endpoint

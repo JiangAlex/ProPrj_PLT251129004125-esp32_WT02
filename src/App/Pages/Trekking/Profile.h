@@ -1,19 +1,20 @@
-#ifndef MAP_H
-#define MAP_H
+#ifndef PROFILE_H
+#define PROFILE_H
 
 #include "App/Utils/PageManager/PageBase.h"
 #include "App/Pages/Page.h"
-#include "MapView.h"
-#include "MapModel.h"
 
 namespace Page
 {
-    class Map : public PageBase
+    #define PROFILE_MAX_PTS 128
+
+    struct ProfilePoint { float dist; float ele; };
+
+    class Profile : public PageBase
     {
     public:
-        Map();
-        virtual ~Map();
-
+        Profile();
+        virtual ~Profile();
         virtual void onCustomAttrConfig() override;
         virtual void onViewLoad() override;
         virtual void onViewWillAppear() override;
@@ -24,21 +25,19 @@ namespace Page
 
     private:
         static void onTimer(lv_timer_t *timer);
-        MapView View;
-        MapModel Model;
+        void drawProfile();
+        void loadGPXProfile();
+
         lv_timer_t *timer;
+        lv_obj_t *canvas;
+        lv_obj_t *lbl_func;
+        static lv_color_t cbuf[];
+
+        ProfilePoint gpxPts[PROFILE_MAX_PTS];
+        int gpxPtCount;
+        float gpxMinEle, gpxMaxEle, gpxTotalDist;
+
         uint32_t lastBtnTime;
-
-        // View state
-        MapMode mode;
-        float centerLat, centerLon;
-        float zoom; // degrees of latitude visible
-        int trackIdx; // current position along track
-
-        // Long press
-        uint32_t okPressStart;
-        bool okLongHandled;
     };
 }
-
 #endif

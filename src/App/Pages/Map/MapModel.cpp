@@ -1,10 +1,10 @@
 #include "MapModel.h"
+#include "App/Pages/Trekking/TrekkingModel.h"
 #include <SPIFFS.h>
 #include <math.h>
 
 using namespace Page;
 
-#define GPX_BIN_PATH "/gpx_data.bin"
 #define DEG_TO_RAD 0.017453292519943295
 
 void MapModel::Init()
@@ -39,9 +39,25 @@ bool MapModel::IsGPSValid() { return lastGPS.isValid; }
 
 bool MapModel::LoadFromSPIFFS()
 {
-    if (!SPIFFS.exists(GPX_BIN_PATH)) return false;
+    String path = TrekkingModel::activeGPXPath;
+    // Fallback: try first file in index
+    if (path.length() == 0) {
+        File idx = SPIFFS.open("/gpx/index.txt", "r");
+        if (idx) {
+            String line = idx.readStringUntil('\n');
+            line.trim();
+            idx.close();
+            if (line.length() > 0) {
+                int num = line.toInt();
+                char buf[32];
+                snprintf(buf, sizeof(buf), "/gpx/%03d.bin", num);
+                path = String(buf);
+            }
+        }
+    }
+    if (path.length() == 0 || !SPIFFS.exists(path)) return false;
 
-    File f = SPIFFS.open(GPX_BIN_PATH, "r");
+    File f = SPIFFS.open(path, "r");
     if (!f) return false;
 
     // Header: uint16_t trackCount, uint16_t wptCount

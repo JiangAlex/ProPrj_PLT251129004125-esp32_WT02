@@ -7,41 +7,27 @@
 
 namespace Page
 {
-    enum MapFunc { MAP_FUNC_WPT = 0, MAP_FUNC_BACK, MAP_FUNC_COUNT };
+    enum MapMode { MAP_MODE_PAN = 0, MAP_MODE_ZOOM };
 
     class MapView
     {
     public:
         void Create(lv_obj_t *root);
         void Delete();
-        void UpdateView(MapModel *model);
-
-        void EnterFuncArea();
-        void ExitFuncArea();
-        void SetFuncSelected(int index);
-        int GetFuncSelected() { return funcSelectedIndex; }
-        bool IsInFuncArea() { return inFuncArea; }
+        void Draw(MapModel *model, float centerLat, float centerLon, float zoom, int trackIdx, MapMode mode);
 
     private:
-        void DrawMap(MapModel *model);
-        void DrawTrack(MapModel *model);
-        void DrawPosition(MapModel *model);
-        void DrawWaypoints(MapModel *model);
-
-        const char* BearingToCardinal(float bearing);
+        void DrawTrack(MapModel *model, float minLat, float maxLat, float minLon, float maxLon);
+        void DrawPosition(MapModel *model, float minLat, float maxLat, float minLon, float maxLon);
+        void DrawWaypoints(MapModel *model, float minLat, float maxLat, float minLon, float maxLon);
 
         lv_obj_t *ui_root = nullptr;
         lv_obj_t *ui_canvas = nullptr;
-        lv_obj_t *ui_info = nullptr;
-        lv_obj_t *ui_func_bar = nullptr;
-        lv_obj_t *lbl_func = nullptr;
+        lv_obj_t *ui_mode = nullptr;
 
         static const int CW = 128;
-        static const int CH = 34;
-        static uint8_t canvas_buf[];
-
-        int funcSelectedIndex = 0;
-        bool inFuncArea = false;
+        static const int CH = 64;
+        static lv_color_t canvas_buf[];
     };
 }
 

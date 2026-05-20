@@ -18,6 +18,8 @@ namespace Page
             TREKKING_ITEM_DIST,
             TREKKING_ITEM_TIME,
             TREKKING_ITEM_STATUS,
+            TREKKING_ITEM_GPX,
+            TREKKING_ITEM_PROFILE,
             TREKKING_ITEM_COUNT
         };
 

@@ -2,6 +2,7 @@
 #include "StartUp/StartUp.h"
 #include "Radio/Radio.h"
 #include "Trekking/Trekking.h"
+#include "Trekking/Profile.h"
 #include "System/System.h"
 #include "Status/Status.h"
 #include "Map/Map.h"
@@ -23,6 +24,7 @@ PageBase *AppFactory::CreatePage(const char *name)
     APP_CLASS_MATCH(Startup);
     APP_CLASS_MATCH(Radio);
     APP_CLASS_MATCH(Trekking);
+    APP_CLASS_MATCH(Profile);
     APP_CLASS_MATCH(System);
     APP_CLASS_MATCH(Status);
     APP_CLASS_MATCH(Map);
