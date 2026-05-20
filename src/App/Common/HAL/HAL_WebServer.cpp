@@ -258,7 +258,10 @@ void HAL::WebServer_Update() {
     // Push framebuffer if dirty and clients connected
     if (framebuffer_dirty && ws.count() > 0) {
         framebuffer_dirty = false;
-        ws.binaryAll(u8g2.getBufferPtr(), 1024);
+        // Skip if any client has too many queued messages
+        if (ws.availableForWriteAll()) {
+            ws.binaryAll(u8g2.getBufferPtr(), 1024);
+        }
     }
     ws.cleanupClients();
 }

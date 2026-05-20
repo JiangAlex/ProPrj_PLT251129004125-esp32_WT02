@@ -106,7 +106,10 @@ void HAL::SA818_Init()
         // Load saved settings from NVS
         SA818_LoadSettings();
 
-        // Apply default settings
+        // Apply power mode pin
+        SA818_SetHighLowPower(current_power_mode == SA818_HIGH_POWER);
+
+        // Apply frequency settings
         // NOTE: The old implementation used CTCSS index. The new one uses frequency.
         // We assume 0 for now. A lookup table will be needed for full functionality.
         float frequency = getSA818Frequency(current_power_mode, current_channel);
@@ -312,18 +315,19 @@ bool HAL::SA818_SetChannel(int channel, SA818_PowerMode powerMode) {
     // 使用 DRA818 庫設定頻率和 CTCSS
     bool result = sa818.setGroup(frequency, frequency, 0, g_sa818_squelch);
     
+    // Always update internal state (user intent), even if hardware command fails
+    current_channel = channel;
+    current_power_mode = powerMode;
+
     if (result) {
-        current_channel = channel;
-        current_power_mode = powerMode;
         Serial.printf("SA818_SetChannel: Successfully set to channel %d (%s, %.4f MHz)\n", 
                       channel, getPowerModeName(powerMode), frequency);
-        SA818_SaveSettings();
-        SA818_Notify();
-        return true;
     } else {
-        Serial.printf("SA818_SetChannel: Failed to set channel %d (Command rejected)\n", channel);
-        return false;
+        Serial.printf("SA818_SetChannel: Hardware command failed for channel %d, state updated anyway\n", channel);
     }
+    SA818_SaveSettings();
+    SA818_Notify();
+    return result;
 }
 
 int HAL::SA818_GetChannel() {

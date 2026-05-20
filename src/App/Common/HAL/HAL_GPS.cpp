@@ -1,20 +1,23 @@
 #include "HAL.h"
 #include <TinyGPSPlus.h>
-#include "App/Configs/pinout.h"
+
+#define GPS_RX_PIN  14
+#define GPS_TX_PIN  27
+#define GPS_BAUD    9600
 
 static TinyGPSPlus gps;
 static bool gps_initialized = false;
 
 void HAL::GPS_Init() {
-    Serial2.begin(SERIAL_GPS_BAUD, SERIAL_8N1, SERIAL_GPS_RXPIN, SERIAL_GPS_TXPIN);
+    Serial1.begin(GPS_BAUD, SERIAL_8N1, GPS_RX_PIN, GPS_TX_PIN);
     gps_initialized = true;
-    Serial.println("[GPS] Init: UART2 RX=16 TX=17 @ 9600");
+    Serial.printf("[GPS] Init: UART1 RX=%d TX=%d @ %d\n", GPS_RX_PIN, GPS_TX_PIN, GPS_BAUD);
 }
 
 void HAL::GPS_Update() {
     if (!gps_initialized) return;
-    while (Serial2.available()) {
-        gps.encode(Serial2.read());
+    while (Serial1.available()) {
+        gps.encode(Serial1.read());
     }
 }
 
