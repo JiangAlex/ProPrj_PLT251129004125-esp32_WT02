@@ -27,6 +27,7 @@ bool HAL::GPS_GetInfo(GPS_Info_t *info) {
     info->longitude = gps.location.lng();
     info->altitude = gps.altitude.meters();
     info->speed = gps.speed.kmph();
+    info->course = gps.course.isValid() ? gps.course.deg() : 0.0f;
     info->satellites = gps.satellites.value();
     info->isValid = gps.location.isValid();
     return info->isValid;

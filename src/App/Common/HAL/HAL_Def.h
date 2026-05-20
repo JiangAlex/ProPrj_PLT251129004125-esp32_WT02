@@ -62,6 +62,7 @@ typedef struct {
     double longitude;
     double altitude;
     float speed;
+    float course;       // degrees 0-360 (heading)
     uint8_t satellites;
     bool isValid;
 } GPS_Info_t;

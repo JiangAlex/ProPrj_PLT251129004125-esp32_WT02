@@ -57,10 +57,15 @@ void Map::onViewLoad()
     timer = lv_timer_create(onTimer, 100, this);
 }
 
-void Map::onViewWillAppear() {}
+void Map::onViewWillAppear() {
+    // Hide StatusBar for fullscreen
+    lv_obj_add_flag(lv_obj_get_child(lv_layer_top(), 0), LV_OBJ_FLAG_HIDDEN);
+}
 void Map::onViewDidAppear() {}
 void Map::onViewWillDisappear() {
     if (timer) { lv_timer_del(timer); timer = nullptr; }
+    // Restore StatusBar
+    lv_obj_clear_flag(lv_obj_get_child(lv_layer_top(), 0), LV_OBJ_FLAG_HIDDEN);
 }
 void Map::onViewDidDisappear() {}
 void Map::onViewDidUnload() {

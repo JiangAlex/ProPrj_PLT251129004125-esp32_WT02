@@ -25,6 +25,7 @@ PTT: 實體按鈕 only, not mapped to Web.
 |--------|-----------|------|
 | SA818 Radio | Serial2 | RX=17, TX=16, PTT=13, PD=26, HL=18 |
 | GPS | Serial1 | RX=14, TX=27, 9600 baud |
+| GPS Data | `GPS_Info_t` | lat, lon, alt, speed, course(0-360°), satellites, isValid |
 | OLED SSD1306 | I2C | SDA=21, SCL=22, Addr=0x3C |
 | Buttons | GPIO | OK=32, UP=33, DOWN=34, PTT=35 |
 
@@ -95,12 +96,18 @@ spiffs,    data, spiffs,  0x610000,  0x9F0000  (~10MB)
 - GPX 項目：OK 循環切換已上傳的 GPX 檔案
 - Profile 項目：OK 進入海拔剖面圖頁面
 
-### Profile Page (海拔剖面圖)
-- 128x34 pixel lv_canvas
-- 從 SPIFFS 讀取選中的 GPX 二進制檔
-- 計算累計距離 (haversine)，繪製海拔折線 (Bresenham)
-- X 軸 = 距離(km)，Y 軸 = 海拔(m)，自動縮放
-- UP 或 OK 返回 Trekking
+### Profile Page (海拔剖面圖 — 全螢幕)
+- **全螢幕 128x64** — 無 StatusBar、無 FuncBar
+- 進入時顯示完整海拔剖面（auto-fit 全距離範圍）
+- **操作模式**：
+  - OK 短按：切換 Pan ↔ Zoom 模式
+  - 右上角顯示模式圖示：`P`（平移）/ `Z`（縮放）
+  - UP/DOWN（Pan 模式）：沿距離軸左右平移（20%/次）
+  - UP/DOWN（Zoom 模式）：放大/縮小距離軸
+  - 長按 OK 3 秒：返回 Trekking 頁面
+- X 軸 = 距離(km)，Y 軸 = 海拔(m)
+- 從 SPIFFS 讀取選中的 GPX（fallback 第一個檔案）
+- Bresenham 折線繪製，自動 clamp 到可視範圍
 
 ### Map Page Design (全螢幕重新設計)
 - **全螢幕 128x64** — 無 StatusBar、無 FuncBar
@@ -208,6 +215,9 @@ spiffs,    data, spiffs,  0x610000,  0x9F0000  (~10MB)
 - [x] StatusBar: TX indicator when PTT pressed
 - [x] Map: auto-load first GPX if no selection
 - [x] UART pin conflict resolved (SA818=Serial2, GPS=Serial1)
+- [x] GPS course/heading field added to GPS_Info_t
+- [x] Profile: fullscreen Pan/Zoom, GPS position ▽ marker, distance scale ticks
+- [x] Map: fullscreen Pan/Zoom, hide StatusBar
 
 ## Future Features (TODO)
 

@@ -8,6 +8,8 @@ namespace Page
 {
     #define PROFILE_MAX_PTS 128
 
+    enum ProfileMode { PROFILE_MODE_PAN = 0, PROFILE_MODE_ZOOM };
+
     struct ProfilePoint { float dist; float ele; };
 
     class Profile : public PageBase
@@ -30,14 +32,21 @@ namespace Page
 
         lv_timer_t *timer;
         lv_obj_t *canvas;
-        lv_obj_t *lbl_func;
         static lv_color_t cbuf[];
 
         ProfilePoint gpxPts[PROFILE_MAX_PTS];
         int gpxPtCount;
         float gpxMinEle, gpxMaxEle, gpxTotalDist;
 
+        // View state
+        ProfileMode mode;
+        float viewDistStart, viewDistEnd;
+        float viewEleMin, viewEleMax;
+
+        // Input
         uint32_t lastBtnTime;
+        uint32_t okPressStart;
+        bool okLongHandled;
     };
 }
 #endif
