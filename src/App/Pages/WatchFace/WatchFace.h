@@ -1,19 +1,16 @@
-#ifndef STATUS_H
-#define STATUS_H
+#ifndef WATCHFACE_H
+#define WATCHFACE_H
 
 #include "App/Utils/PageManager/PageBase.h"
 #include "App/Pages/Page.h"
-#include "StatusView.h"
-#include "StatusModel.h"
 
 namespace Page
 {
-    class Status : public PageBase
+    class WatchFace : public PageBase
     {
     public:
-        Status();
-        virtual ~Status();
-        
+        WatchFace();
+        virtual ~WatchFace();
         virtual void onCustomAttrConfig() override;
         virtual void onViewLoad() override;
         virtual void onViewWillAppear() override;
@@ -24,13 +21,11 @@ namespace Page
 
     private:
         static void onTimer(lv_timer_t *timer);
-        StatusView View;
-        StatusModel Model;
         lv_timer_t *timer;
+        lv_obj_t *lbl_time;
+        lv_obj_t *lbl_date;
+        lv_obj_t *lbl_status;
         uint32_t lastBtnTime;
-        uint32_t okPressStart;
-        bool okLongHandled;
     };
 }
-
 #endif

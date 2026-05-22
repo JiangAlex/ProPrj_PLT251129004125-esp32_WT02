@@ -57,6 +57,8 @@ private:
     bool lastBtnUp = true;
     bool lastBtnDown = true;
     bool lastBtnOK = true;
+    uint32_t okPressStart = 0;
+    bool okLongHandled = false;
 };
 
 }

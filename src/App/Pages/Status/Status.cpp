@@ -8,7 +8,7 @@ using namespace Page;
 #define BTN_DOWN 34
 #define BTN_OK 32
 
-Status::Status() : timer(nullptr), lastBtnTime(0)
+Status::Status() : timer(nullptr), lastBtnTime(0), okPressStart(0), okLongHandled(false)
 {
 }
 
@@ -60,6 +60,20 @@ void Status::onTimer(lv_timer_t *timer)
     instance->View.UpdateView(&instance->Model);
 
     uint32_t now = millis();
+
+    bool okPressed = (digitalRead(BTN_OK) == LOW);
+    if (okPressed) {
+        if (instance->okPressStart == 0) instance->okPressStart = now;
+        if (!instance->okLongHandled && (now - instance->okPressStart > 3000)) {
+            instance->Manager->Pop();
+            instance->okLongHandled = true;
+            return;
+        }
+    } else {
+        instance->okPressStart = 0;
+        instance->okLongHandled = false;
+    }
+
     if (now - instance->lastBtnTime > 150) {
         if (digitalRead(BTN_UP) == LOW) {
             instance->View.SetSelected(instance->View.GetSelected() - 1);
@@ -67,9 +81,6 @@ void Status::onTimer(lv_timer_t *timer)
         } else if (digitalRead(BTN_DOWN) == LOW) {
             instance->View.SetSelected(instance->View.GetSelected() + 1);
             instance->lastBtnTime = now;
-        } else if (digitalRead(BTN_OK) == LOW) {
-            instance->Manager->Pop();
-            instance->lastBtnTime = now + 500;
         }
     }
 }

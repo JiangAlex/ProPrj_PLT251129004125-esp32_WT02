@@ -3,8 +3,24 @@
 #include "App/Utils/OTA/ota_updater.h"
 #include "App/Utils/OTA/ota_config.h"
 #include "App/Configs/Version.h"
+#include <Preferences.h>
 
 static WiFiManager wifiManager;
+
+bool HAL::WiFi_IsEnabled() {
+    Preferences prefs;
+    prefs.begin("system", true);
+    bool en = prefs.getBool("wifi", false); // Default OFF
+    prefs.end();
+    return en;
+}
+
+void HAL::WiFi_SetEnabled(bool en) {
+    Preferences prefs;
+    prefs.begin("system", false);
+    prefs.putBool("wifi", en);
+    prefs.end();
+}
 
 // WiFi 連接成功回調
 static void onWiFiConnected() {

@@ -1,4 +1,5 @@
 #include "MapView.h"
+#include <math.h>
 
 using namespace Page;
 
@@ -145,21 +146,42 @@ void MapView::DrawPosition(MapModel *model, float minLat, float maxLat, float mi
     int py = (CH-1) - (int)((gps.latitude - minLat) / rangeY * (CH - 1));
 
     // Clamp to screen edges
-    if (px < 2) px = 2;
-    if (px > CW - 3) px = CW - 3;
-    if (py < 2) py = 2;
-    if (py > CH - 3) py = CH - 3;
+    if (px < 3) px = 3;
+    if (px > CW - 4) px = CW - 4;
+    if (py < 3) py = 3;
+    if (py > CH - 4) py = CH - 4;
 
-    // Draw ▲
-    lv_canvas_set_px_color(ui_canvas, px, py-2, lv_color_white());
-    lv_canvas_set_px_color(ui_canvas, px-1, py-1, lv_color_white());
-    lv_canvas_set_px_color(ui_canvas, px, py-1, lv_color_white());
-    lv_canvas_set_px_color(ui_canvas, px+1, py-1, lv_color_white());
-    lv_canvas_set_px_color(ui_canvas, px-2, py, lv_color_white());
-    lv_canvas_set_px_color(ui_canvas, px-1, py, lv_color_white());
-    lv_canvas_set_px_color(ui_canvas, px, py, lv_color_white());
-    lv_canvas_set_px_color(ui_canvas, px+1, py, lv_color_white());
-    lv_canvas_set_px_color(ui_canvas, px+2, py, lv_color_white());
+    // Draw arrow pointing in GPS course direction
+    float rad = gps.course * 3.14159f / 180.0f; // 0=North, 90=East
+    float cosA = cos(rad);
+    float sinA = sin(rad);
+
+    // Arrow: tip (forward), two tail points
+    // North = up = -Y in screen coords
+    int tipX = px + (int)(sinA * 3);
+    int tipY = py - (int)(cosA * 3);
+    int t1X = px - (int)(sinA * 2) - (int)(cosA * 1);
+    int t1Y = py + (int)(cosA * 2) - (int)(sinA * 1);
+    int t2X = px - (int)(sinA * 2) + (int)(cosA * 1);
+    int t2Y = py + (int)(cosA * 2) + (int)(sinA * 1);
+
+    // Draw 3 lines: tip-t1, tip-t2, t1-t2
+    auto drawLine = [&](int x0, int y0, int x1, int y1) {
+        int dx = abs(x1-x0), sx = x0<x1?1:-1;
+        int dy = -abs(y1-y0), sy = y0<y1?1:-1;
+        int err = dx+dy;
+        for (int s=0; s<20; s++) {
+            if (x0>=0 && x0<CW && y0>=0 && y0<CH)
+                lv_canvas_set_px_color(ui_canvas, x0, y0, lv_color_white());
+            if (x0==x1 && y0==y1) break;
+            int e2=2*err;
+            if (e2>=dy){err+=dy;x0+=sx;}
+            if (e2<=dx){err+=dx;y0+=sy;}
+        }
+    };
+    drawLine(tipX, tipY, t1X, t1Y);
+    drawLine(tipX, tipY, t2X, t2Y);
+    drawLine(t1X, t1Y, t2X, t2Y);
 }
 
 void MapView::DrawWaypoints(MapModel *model, float minLat, float maxLat, float minLon, float maxLon)

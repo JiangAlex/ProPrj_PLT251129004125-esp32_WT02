@@ -35,11 +35,10 @@ void HAL::HAL_Init(void)
     HAL::I2C_Init(true);
     HAL::U8g2_Init(); // Initialize U8g2 for display
     #ifdef ENABLE_AUTO_OTA_CHECK
-        HAL::WiFi_Init();
+        if (HAL::WiFi_IsEnabled()) HAL::WiFi_Init();
     #endif
     #ifdef ENABLE_WEB_GUI
-        HAL::WiFi_Init();
-        // WebServer_Init is called from WiFi connected callback to avoid port conflict
+        if (HAL::WiFi_IsEnabled()) HAL::WiFi_Init();
     #endif
     // Display_Init();
     //HAL::Button_Init();

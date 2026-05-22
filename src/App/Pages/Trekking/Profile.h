@@ -25,6 +25,9 @@ namespace Page
         virtual void onViewDidDisappear() override;
         virtual void onViewDidUnload() override;
 
+    public:
+        static lv_color_t cbuf[];
+
     private:
         static void onTimer(lv_timer_t *timer);
         void drawProfile();
@@ -32,7 +35,7 @@ namespace Page
 
         lv_timer_t *timer;
         lv_obj_t *canvas;
-        static lv_color_t cbuf[];
+        lv_obj_t *lbl_scale;
 
         ProfilePoint gpxPts[PROFILE_MAX_PTS];
         int gpxPtCount;

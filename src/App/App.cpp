@@ -47,6 +47,8 @@ void App_Init()
     manager.Install("Trekking","Pages/Trekking");
     manager.Install("Map",     "Pages/Map");
     manager.Install("Profile", "Pages/Profile");
+    manager.Install("WatchFace", "Pages/WatchFace");
+    manager.Install("Live", "Pages/Live");
     manager.Install("System", "Pages/System");
     manager.Install("Status",  "Pages/Status");
     manager.SetGlobalLoadAnimType(PageManager::LOAD_ANIM_OVER_TOP, 500);

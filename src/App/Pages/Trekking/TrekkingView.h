@@ -16,10 +16,14 @@ namespace Page
             TREKKING_ITEM_PRESS,
             TREKKING_ITEM_ASCENT,
             TREKKING_ITEM_DIST,
+            TREKKING_ITEM_SPD,
+            TREKKING_ITEM_SAT,
             TREKKING_ITEM_TIME,
             TREKKING_ITEM_STATUS,
             TREKKING_ITEM_GPX,
+            TREKKING_ITEM_MAP,
             TREKKING_ITEM_PROFILE,
+            TREKKING_ITEM_LIVE,
             TREKKING_ITEM_COUNT
         };
 

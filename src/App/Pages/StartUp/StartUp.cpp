@@ -98,12 +98,20 @@ void Startup::onTimer(lv_timer_t *timer)
     static unsigned long lastTimeUp = 0;
     static unsigned long lastTimeDown = 0;
     static unsigned long lastTimeOk = 0;
-    
+    static unsigned long lastActivity = 0;
+    static bool justReturned = true; // Force reset on first tick after page load
+
     bool curUp = digitalRead(BTN_UP);
     bool curDown = digitalRead(BTN_DOWN);
     bool curOk = digitalRead(BTN_OK);
     
     unsigned long now = millis();
+
+    // Reset idle timer on any button press or page reload
+    if (!curUp || !curDown || !curOk || justReturned) {
+        lastActivity = now;
+        justReturned = false;
+    }
     
     // UP 按鍵
     if (now - lastTimeUp > 200) {
@@ -146,13 +154,10 @@ void Startup::onTimer(lv_timer_t *timer)
                 case 1:  // Trekking
                     instance->Manager->Push("Pages/Trekking");
                     break;
-                case 2:  // Map
-                    instance->Manager->Push("Pages/Map");
-                    break;
-                case 3:  // Status
+                case 2:  // Status
                     instance->Manager->Push("Pages/Status");
                     break;
-                case 4:  // System
+                case 3:  // System
                     instance->Manager->Push("Pages/System");
                     break;
             }
@@ -160,6 +165,13 @@ void Startup::onTimer(lv_timer_t *timer)
         }
     }
     lastOk = curOk;
+
+    // Auto-enter WatchFace after timeout
+    if (now - lastActivity > (unsigned long)HAL::Clock_GetScreenTimeout() * 1000) {
+        lastActivity = now;
+        justReturned = true; // Will reset on next load
+        instance->Manager->Push("Pages/WatchFace");
+    }
 }
 
 void Startup::onEvent(lv_event_t *event)

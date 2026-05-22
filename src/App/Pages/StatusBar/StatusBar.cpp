@@ -24,6 +24,7 @@
 #include "App/Pages/Page.h"
 #include "App/Common/DataProc/DataProc.h"
 #include "App/Common/HAL/HAL.h"
+#include <WiFi.h>
 
 struct
 {
@@ -71,6 +72,20 @@ static void StatusBar_UpdateTimer(lv_timer_t *timer)
     }
     lv_label_set_text(ui.labelClock, timeBuf);
     
+    // Update status icons
+    if (ui.satellite.label) {
+        char icons[16] = "";
+        // GPS: G=valid, g=no fix
+        GPS_Info_t gpsInfo;
+        HAL::GPS_GetInfo(&gpsInfo);
+        strcat(icons, gpsInfo.isValid ? "G" : "g");
+        // WiFi: W=connected, w=disconnected
+        strcat(icons, WiFi.status() == WL_CONNECTED ? "W" : "w");
+        // Radio: R (always shown if SA818 initialized)
+        strcat(icons, "R");
+        lv_label_set_text(ui.satellite.label, icons);
+    }
+
     // 更新電池（模擬值）
     if (ui.battery.label) {
         if (HAL::PTT_IsPressed()) {
@@ -129,12 +144,21 @@ lv_obj_t *Page::StatusBar_Create(lv_obj_t *par)
     snprintf(timeBuf, sizeof(timeBuf), "%02d:%02d", clockInfo.hour, clockInfo.minute);
     
     lv_label_set_text(timeLabel, timeBuf);
-    lv_obj_set_style_text_font(timeLabel, &lv_font_unscii_16, 0);
+    lv_obj_set_style_text_font(timeLabel, &lv_font_unscii_8, 0);
     lv_obj_set_style_text_color(timeLabel, lv_color_white(), 0);
     lv_obj_set_style_bg_opa(timeLabel, LV_OPA_TRANSP, 0);
     lv_obj_align(timeLabel, LV_ALIGN_LEFT_MID, 2, 0);
     
     ui.labelClock = timeLabel;
+
+    // Status icons label (right of center, before battery)
+    lv_obj_t* iconsLabel = lv_label_create(topBar);
+    lv_label_set_text(iconsLabel, "");
+    lv_obj_set_style_text_font(iconsLabel, &lv_font_unscii_8, 0);
+    lv_obj_set_style_text_color(iconsLabel, lv_color_white(), 0);
+    lv_obj_set_style_bg_opa(iconsLabel, LV_OPA_TRANSP, 0);
+    lv_obj_align(iconsLabel, LV_ALIGN_RIGHT_MID, -30, 0);
+    ui.satellite.label = iconsLabel;
     
     // 右側電池標籤
     lv_obj_t* batteryLabel = lv_label_create(topBar);

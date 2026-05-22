@@ -32,7 +32,7 @@ void TrekkingView::Create(lv_obj_t *root)
     lv_obj_set_scrollbar_mode(ui_list, LV_SCROLLBAR_MODE_OFF); // 隱藏滾動條但保持滾動
 
     // Create List Items
-    const char* item_labels[] = {"Temp:", "Alt:", "Pres:", "Asc:", "Dist:", "Time:", "Stat:", "GPX:", "Profile"};
+    const char* item_labels[] = {"Temp:", "Alt:", "Pres:", "Asc:", "Dist:", "Spd:", "Sat:", "Time:", "Stat:", "GPX:", "Map", "Profile", "Live"};
     for (int i = 0; i < TREKKING_ITEM_COUNT; i++) {
         lv_obj_t* item = lv_label_create(ui_list);
         lv_obj_set_style_text_font(item, &lv_font_unscii_8, 0);
@@ -94,6 +94,8 @@ void TrekkingView::UpdateView(TrekkingModel *model)
     lv_label_set_text_fmt(ui_items[TREKKING_ITEM_PRESS], "%sPres: %.0f hPa", !inFuncArea && selectedIndex == TREKKING_ITEM_PRESS ? "> " : "  ", lastModel->GetPressure());
     lv_label_set_text_fmt(ui_items[TREKKING_ITEM_ASCENT], "%sAsc: %.0f m", !inFuncArea && selectedIndex == TREKKING_ITEM_ASCENT ? "> " : "  ", lastModel->GetAscent());
     lv_label_set_text_fmt(ui_items[TREKKING_ITEM_DIST], "%sDist: %.2f km", !inFuncArea && selectedIndex == TREKKING_ITEM_DIST ? "> " : "  ", lastModel->GetDistanceKm());
+    lv_label_set_text_fmt(ui_items[TREKKING_ITEM_SPD], "%sSpd: %.1f km/h", !inFuncArea && selectedIndex == TREKKING_ITEM_SPD ? "> " : "  ", lastModel->GetSpeed());
+    lv_label_set_text_fmt(ui_items[TREKKING_ITEM_SAT], "%sSat: %d", !inFuncArea && selectedIndex == TREKKING_ITEM_SAT ? "> " : "  ", lastModel->GetSatellites());
     
     uint32_t t = lastModel->GetTimeMs() / 1000;
     lv_label_set_text_fmt(ui_items[TREKKING_ITEM_TIME], "%sTime: %02d:%02d:%02d", !inFuncArea && selectedIndex == TREKKING_ITEM_TIME ? "> " : "  ", t / 3600, (t % 3600) / 60, t % 60);
@@ -106,7 +108,7 @@ void TrekkingView::UpdateView(TrekkingModel *model)
     } else {
         if (lastModel->GetTimeMs() > 0) {
             lv_label_set_text_fmt(ui_items[TREKKING_ITEM_STATUS], "%sStat: PAUSED", !inFuncArea && selectedIndex == TREKKING_ITEM_STATUS ? "> " : "  ");
-            start_text = "[RESUME]";
+            start_text = "[STOP]";
         } else {
             lv_label_set_text_fmt(ui_items[TREKKING_ITEM_STATUS], "%sStat: READY", !inFuncArea && selectedIndex == TREKKING_ITEM_STATUS ? "> " : "  ");
             start_text = "[START]";
@@ -121,7 +123,9 @@ void TrekkingView::UpdateView(TrekkingModel *model)
     else
         lv_label_set_text_fmt(ui_items[TREKKING_ITEM_GPX], "%sGPX: none", gpxPrefix);
 
+    lv_label_set_text_fmt(ui_items[TREKKING_ITEM_MAP], "%sMap >>", !inFuncArea && selectedIndex == TREKKING_ITEM_MAP ? "> " : "  ");
     lv_label_set_text_fmt(ui_items[TREKKING_ITEM_PROFILE], "%sProfile >>", !inFuncArea && selectedIndex == TREKKING_ITEM_PROFILE ? "> " : "  ");
+    lv_label_set_text_fmt(ui_items[TREKKING_ITEM_LIVE], "%sLive >>", !inFuncArea && selectedIndex == TREKKING_ITEM_LIVE ? "> " : "  ");
 
     char func_buf[32];
     if (inFuncArea) {

@@ -29,6 +29,8 @@ namespace Page
         SystemModel Model;
         lv_timer_t *timer;
         uint32_t lastBtnTime;
+        uint32_t okPressStart;
+        bool okLongHandled;
     };
 }
 

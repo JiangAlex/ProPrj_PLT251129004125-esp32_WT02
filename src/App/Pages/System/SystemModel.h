@@ -27,6 +27,7 @@ namespace Page
         void SetBrightness(uint8_t val);
         void SetTimezone(int8_t tz);
         void Toggle24Hour();
+        void ToggleWiFi();
         void ResetWiFi();
         void Reboot();
         void TriggerOTA();

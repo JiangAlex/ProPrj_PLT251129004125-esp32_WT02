@@ -9,10 +9,10 @@ using namespace Page;
 
 enum SysItem {
     SYS_WIFI = 0, SYS_IP, SYS_HEAP, SYS_BRIGHT, SYS_TIMEZONE,
-    SYS_CLOCK_FMT, SYS_GPS, SYS_VERSION, SYS_OTA, SYS_RESET_WIFI, SYS_REBOOT
+    SYS_CLOCK_FMT, SYS_SCRTO, SYS_GPS, SYS_VERSION, SYS_OTA, SYS_RESET_WIFI, SYS_REBOOT
 };
 
-System::System() : timer(nullptr), lastBtnTime(0) {}
+System::System() : timer(nullptr), lastBtnTime(0), okPressStart(0), okLongHandled(false) {}
 System::~System() {}
 
 void System::onCustomAttrConfig()
@@ -50,9 +50,7 @@ void System::onViewDidUnload()
 void System::handleOK()
 {
     if (View.IsInFuncArea()) {
-        if (View.GetFuncSelected() == SYS_FUNC_BACK) {
-            Manager->Pop();
-        }
+        Manager->Pop();
         return;
     }
 
@@ -65,8 +63,12 @@ void System::handleOK()
     }
 
     switch (sel) {
+        case SYS_WIFI:
+            Model.ToggleWiFi();
+            break;
         case SYS_BRIGHT:
         case SYS_TIMEZONE:
+        case SYS_SCRTO:
             View.SetEditMode(true);
             break;
         case SYS_CLOCK_FMT:
@@ -92,11 +94,30 @@ void System::onTimer(lv_timer_t *timer)
     inst->View.UpdateView(&inst->Model);
 
     uint32_t now = millis();
+
+    // Long press OK = return to menu
+    bool okState = (digitalRead(BTN_OK) == LOW);
+    bool okShortPress = false;
+    if (okState) {
+        if (inst->okPressStart == 0) inst->okPressStart = now;
+        if (!inst->okLongHandled && (now - inst->okPressStart > 3000)) {
+            inst->Manager->Pop();
+            inst->okLongHandled = true;
+            return;
+        }
+    } else {
+        if (inst->okPressStart > 0 && !inst->okLongHandled) {
+            okShortPress = true;
+        }
+        inst->okPressStart = 0;
+        inst->okLongHandled = false;
+    }
+
     if (now - inst->lastBtnTime < 150) return;
 
     bool up = (digitalRead(BTN_UP) == LOW);
     bool down = (digitalRead(BTN_DOWN) == LOW);
-    bool ok = (digitalRead(BTN_OK) == LOW);
+    bool ok = okShortPress;
 
     if (!up && !down && !ok) return;
     inst->lastBtnTime = now;
@@ -110,6 +131,9 @@ void System::onTimer(lv_timer_t *timer)
             } else if (sel == SYS_TIMEZONE) {
                 int8_t tz = inst->Model.GetTimezone();
                 if (tz < 14) inst->Model.SetTimezone(tz + 1);
+            } else if (sel == SYS_SCRTO) {
+                uint8_t t = HAL::Clock_GetScreenTimeout();
+                if (t < 60) HAL::Clock_SetScreenTimeout(t + 5);
             }
         } else if (down) {
             if (sel == SYS_BRIGHT) {
@@ -118,6 +142,9 @@ void System::onTimer(lv_timer_t *timer)
             } else if (sel == SYS_TIMEZONE) {
                 int8_t tz = inst->Model.GetTimezone();
                 if (tz > -12) inst->Model.SetTimezone(tz - 1);
+            } else if (sel == SYS_SCRTO) {
+                uint8_t t = HAL::Clock_GetScreenTimeout();
+                if (t > 5) HAL::Clock_SetScreenTimeout(t - 5);
             }
         } else if (ok) {
             inst->View.SetEditMode(false);

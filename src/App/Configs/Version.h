@@ -25,7 +25,7 @@
 
 /* Firmware Version */
 #define VERSION_FIRMWARE_NAME   "[littleVisual]"
-#define VERSION_SOFTWARE        "v1.0.1"
+#define VERSION_SOFTWARE        "v1.0.2"  /* cb6ff96 */ 
 #define VERSION_HARDWARE        "v1.0"
 #define VERSION_AUTHOR_NAME     "Alex_Chiang"
 #define VERSION_PROJECT_LINK    "https://github.com/ZhangKeLiang0627/Easy-GPS"

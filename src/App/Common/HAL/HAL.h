@@ -108,6 +108,8 @@ namespace HAL
     bool Clock_Is24Hour();
     void Clock_SetTimezone(int8_t tz);
     int8_t Clock_GetTimezone();
+    void Clock_SetScreenTimeout(uint8_t sec);
+    uint8_t Clock_GetScreenTimeout();
 
     /* GPS */
     void GPS_Init();
@@ -157,6 +159,8 @@ namespace HAL
     void WiFi_APSetEnable(bool en);
     void WiFi_STASetEnable(bool en);
     void WiFi_GetInfo(::WiFi_Info_t *info);
+    bool WiFi_IsEnabled();
+    void WiFi_SetEnabled(bool en);
 
     /* OTA */
     void OTA_Init();

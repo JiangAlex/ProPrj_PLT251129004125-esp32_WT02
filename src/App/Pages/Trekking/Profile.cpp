@@ -23,7 +23,7 @@ static double haversine(float lat1, float lon1, float lat2, float lon2) {
     return 6371000.0 * 2.0 * atan2(sqrt(a), sqrt(1-a));
 }
 
-Profile::Profile() : timer(nullptr), canvas(nullptr),
+Profile::Profile() : timer(nullptr), canvas(nullptr), lbl_scale(nullptr),
     gpxPtCount(0), gpxMinEle(0), gpxMaxEle(0), gpxTotalDist(0),
     mode(PROFILE_MODE_PAN), viewDistStart(0), viewDistEnd(0),
     viewEleMin(0), viewEleMax(0),
@@ -46,6 +46,15 @@ void Profile::onViewLoad() {
     canvas = lv_canvas_create(root);
     lv_canvas_set_buffer(canvas, cbuf, CW, CH, LV_IMG_CF_TRUE_COLOR);
     lv_obj_set_pos(canvas, 0, 0);
+
+    // Scale label (bottom-left, over canvas)
+    lbl_scale = lv_label_create(root);
+    lv_obj_set_style_text_font(lbl_scale, &lv_font_unscii_8, 0);
+    lv_obj_set_style_text_color(lbl_scale, lv_color_white(), 0);
+    lv_obj_set_style_bg_color(lbl_scale, lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(lbl_scale, LV_OPA_COVER, 0);
+    lv_obj_align(lbl_scale, LV_ALIGN_BOTTOM_LEFT, 1, -1);
+    lv_label_set_text(lbl_scale, "");
 
     loadGPXProfile();
 
@@ -167,6 +176,34 @@ void Profile::drawProfile() {
         }
     }
 
+    // Draw live recording as dotted line (X=time, Y=altitude)
+    if (TrekkingModel::livePtCount > 1) {
+        float liveMaxT = TrekkingModel::livePts[TrekkingModel::livePtCount - 1].time_sec;
+        if (liveMaxT > 0) {
+            // Find min/max altitude for live data (share Y scale with GPX)
+            float liveMinEle = viewEleMin;
+            float liveMaxEle = viewEleMax;
+            for (int i = 0; i < TrekkingModel::livePtCount; i++) {
+                if (TrekkingModel::livePts[i].alt < liveMinEle) liveMinEle = TrekkingModel::livePts[i].alt;
+                if (TrekkingModel::livePts[i].alt > liveMaxEle) liveMaxEle = TrekkingModel::livePts[i].alt;
+            }
+            // Use shared Y range
+            float eRange = liveMaxEle - liveMinEle;
+            if (eRange < 10) eRange = viewEleMax - viewEleMin;
+            float eMin = (liveMinEle < viewEleMin) ? liveMinEle : viewEleMin;
+
+            for (int i = 0; i < TrekkingModel::livePtCount; i++) {
+                // Map time to X (0..CW-1)
+                int x = (int)((TrekkingModel::livePts[i].time_sec / liveMaxT) * (CW - 1));
+                int y = (CH-1) - (int)(((TrekkingModel::livePts[i].alt - eMin) / eRange) * (CH - 1));
+                // Dotted: draw every other pixel
+                if (x >= 0 && x < CW && y >= 0 && y < CH && (i % 2 == 0)) {
+                    lv_canvas_set_px_color(canvas, x, y, lv_color_white());
+                }
+            }
+        }
+    }
+
     // Draw GPS position marker (inverted triangle ▽)
     GPS_Info_t gps;
     HAL::GPS_GetInfo(&gps);
@@ -259,16 +296,20 @@ void Profile::drawProfile() {
     for (float d = firstTick; d <= viewDistEnd; d += tickInterval) {
         int tx = (int)((d - viewDistStart) / distRange * (CW - 1));
         if (tx >= 0 && tx < CW) {
-            // Tick mark (3px tall at bottom)
             for (int ty = CH - 3; ty < CH; ty++)
                 lv_canvas_set_px_color(canvas, tx, ty, lv_color_white());
         }
     }
-    // Draw start/end distance values (simple: leftmost and rightmost)
-    // Left: viewDistStart
-    int startKm = (int)viewDistStart;
-    // Draw single digit at bottom-left (pixel approximation)
-    // Just draw a dot at each tick for simplicity - the ticks themselves indicate scale
+
+    // Update scale label
+    if (lbl_scale) {
+        char scaleBuf[12];
+        if (tickInterval >= 1.0f)
+            snprintf(scaleBuf, sizeof(scaleBuf), "%.0fkm", tickInterval);
+        else
+            snprintf(scaleBuf, sizeof(scaleBuf), "%dm", (int)(tickInterval * 1000));
+        lv_label_set_text(lbl_scale, scaleBuf);
+    }
 
     // Mode indicator top-right
     int ox = CW - 5, oy = 1;

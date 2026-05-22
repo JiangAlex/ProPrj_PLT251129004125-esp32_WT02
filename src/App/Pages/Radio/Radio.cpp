@@ -201,7 +201,18 @@ void Radio::onTimer(lv_timer_t *timer)
         Serial.println("[Radio] After handleButtonDown");
     }
     if (instance->lastBtnOK && !btnOK) {
-        instance->handleButtonOK();
+        instance->okPressStart = now;
+        instance->okLongHandled = false;
+    }
+    if (!btnOK && instance->okPressStart > 0 && !instance->okLongHandled && (now - instance->okPressStart > 3000)) {
+        instance->Manager->Pop();
+        instance->okLongHandled = true;
+    }
+    if (btnOK && instance->okPressStart > 0) {
+        if (!instance->okLongHandled) {
+            instance->handleButtonOK();
+        }
+        instance->okPressStart = 0;
         instance->lastBtnTime = now;
     }
     

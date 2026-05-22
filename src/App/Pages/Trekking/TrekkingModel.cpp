@@ -5,6 +5,9 @@
 using namespace Page;
 
 String TrekkingModel::activeGPXPath = "";
+TrekkingModel::LivePoint TrekkingModel::livePts[TrekkingModel::LIVE_MAX_PTS];
+int TrekkingModel::livePtCount = 0;
+float TrekkingModel::liveMaxTime = 0;
 
 TrekkingModel::TrekkingModel()
 {
@@ -53,6 +56,17 @@ void TrekkingModel::Update()
     UpdateSensors();
     
     if (isRecording && lastValid) {
+        // Record live point every 10 seconds
+        float elapsed = GetTimeMs() / 1000.0f;
+        if (livePtCount == 0 || (elapsed - liveMaxTime >= 10.0f)) {
+            if (livePtCount < LIVE_MAX_PTS) {
+                livePts[livePtCount].time_sec = elapsed;
+                livePts[livePtCount].alt = currentAlt;
+                livePtCount++;
+                liveMaxTime = elapsed;
+            }
+        }
+
         // Accumulate distance from GPS
         GPS_Info_t gpsInfo;
         if (HAL::GPS_GetInfo(&gpsInfo) && gpsInfo.isValid) {
@@ -112,7 +126,8 @@ void TrekkingModel::StopRecord()
     startTime = 0;
     pauseTime = 0;
     totalPauseTime = 0;
-    // TODO: 可以在這裡儲存活動紀錄
+    livePtCount = 0;
+    liveMaxTime = 0;
 }
 
 bool TrekkingModel::IsRecording()
@@ -138,6 +153,18 @@ float TrekkingModel::GetAltitude() { return currentAlt; }
 float TrekkingModel::GetTemperature() { return currentTemp; }
 float TrekkingModel::GetPressure() { return currentPress; }
 float TrekkingModel::GetAscent() { return totalAscent; }
+
+float TrekkingModel::GetSpeed() {
+    GPS_Info_t info;
+    if (HAL::GPS_GetInfo(&info)) return info.speed;
+    return 0.0f;
+}
+
+int TrekkingModel::GetSatellites() {
+    GPS_Info_t info;
+    HAL::GPS_GetInfo(&info);
+    return info.satellites;
+}
 
 int TrekkingModel::GetGPXFileCount() {
     gpxFileCount = 0;

@@ -8,6 +8,7 @@ static bool clock_initialized = false;
 static bool clock_synced = false;
 static bool clock_24h = true;
 static int8_t clock_timezone = 8;
+static uint8_t screen_timeout = 10;
 
 // NTP 伺服器設定
 static const char* ntpServer1 = "time.stdtime.gov.tw";  // 台灣標準時間
@@ -24,6 +25,7 @@ void HAL::Clock_Init()
     prefs.begin("system", true);
     clock_timezone = prefs.getChar("tz", 8);
     clock_24h = prefs.getBool("24h", true);
+    screen_timeout = prefs.getUChar("scrto", 10);
     prefs.end();
     
     // Apply saved timezone
@@ -190,3 +192,13 @@ void HAL::Clock_SetTimezone(int8_t tz) {
 }
 
 int8_t HAL::Clock_GetTimezone() { return clock_timezone; }
+
+void HAL::Clock_SetScreenTimeout(uint8_t sec) {
+    screen_timeout = sec;
+    Preferences prefs;
+    prefs.begin("system", false);
+    prefs.putUChar("scrto", sec);
+    prefs.end();
+}
+
+uint8_t HAL::Clock_GetScreenTimeout() { return screen_timeout; }

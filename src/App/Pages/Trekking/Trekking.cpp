@@ -92,9 +92,9 @@ void Trekking::onTimer(lv_timer_t *timer)
             instance->pressStartTime = now;
             instance->isLongPressHandled = false;
         } else if (!instance->isLongPressHandled && (now - instance->pressStartTime > 3000)) {
-            // Long press = STOP (reset all data)
-            instance->Model.StopRecord();
-            Serial.println("[Trekking] STOP (Long Press)");
+            // Long press = return to menu
+            instance->Manager->Pop();
+            Serial.println("[Trekking] BACK (Long Press)");
             instance->isLongPressHandled = true; // Prevent short press action on release
         }
     } else { // Not pressed
@@ -105,6 +105,10 @@ void Trekking::onTimer(lv_timer_t *timer)
                     int sel = instance->View.GetSelected();
                     if (sel == TrekkingView::TREKKING_ITEM_PROFILE) {
                         instance->Manager->Push("Pages/Profile");
+                    } else if (sel == TrekkingView::TREKKING_ITEM_LIVE) {
+                        instance->Manager->Push("Pages/Live");
+                    } else if (sel == TrekkingView::TREKKING_ITEM_MAP) {
+                        instance->Manager->Push("Pages/Map");
                     } else if (sel == TrekkingView::TREKKING_ITEM_GPX) {
                         int next = instance->Model.GetGPXSelected() + 1;
                         instance->Model.SetGPXSelected(next);
@@ -115,9 +119,13 @@ void Trekking::onTimer(lv_timer_t *timer)
                         if (instance->Model.IsRecording()) {
                             instance->Model.PauseRecord();
                             Serial.println("[Trekking] Action: PAUSE");
+                        } else if (instance->Model.GetTimeMs() > 0) {
+                            // Paused state: STOP (reset)
+                            instance->Model.StopRecord();
+                            Serial.println("[Trekking] Action: STOP");
                         } else {
                             instance->Model.StartRecord();
-                            Serial.println("[Trekking] Action: RESUME/START");
+                            Serial.println("[Trekking] Action: START");
                         }
                     } else if (func == TrekkingView::TREKKING_FUNC_BACK) {
                         Serial.println("[Trekking] Action: BACK");

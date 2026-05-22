@@ -69,6 +69,19 @@ void SystemModel::Toggle24Hour() {
     HAL::Clock_Set24Hour(!HAL::Clock_Is24Hour());
 }
 
+void SystemModel::ToggleWiFi() {
+    if (HAL::WiFi_IsEnabled()) {
+        HAL::WiFi_SetEnabled(false);
+        WiFi.disconnect(true);
+        WiFi.mode(WIFI_OFF);
+        Serial.println("[System] WiFi OFF");
+    } else {
+        HAL::WiFi_SetEnabled(true);
+        HAL::WiFi_Init();
+        Serial.println("[System] WiFi ON");
+    }
+}
+
 void SystemModel::ResetWiFi() {
     EEPROM.begin(512);
     EEPROM.put(128, (uint16_t)0x0000); // Clear magic number

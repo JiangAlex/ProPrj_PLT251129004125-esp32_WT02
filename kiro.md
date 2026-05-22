@@ -82,12 +82,18 @@ spiffs,    data, spiffs,  0x610000,  0x9F0000  (~10MB)
 ### Pages
 
 1. **StartUp** (Main Menu): Radio, Trekking, Map, Status, System + 底部日期
-2. **Radio**: CH/CTCSS/Power/RSSI/VOL/SQ + [SCAN][BACK]
-3. **Trekking**: Temp/Alt/Pres/Asc/Dist/Time/Stat/GPX/Profile + [START/PAUSE][BACK]
-4. **Profile** (子頁面): 海拔剖面圖 (128x34 canvas) + [BACK]
-5. **Map**: GPX track rendering + GPS position + waypoint navigation
-6. **Status**: TEMP/ALT/PRES/STEP/COMP + [BACK]
-7. **System**: WiFi/IP/Heap/Bright/TZ/Clock(12H/24H)/GPS/Ver/OTA/Reset WiFi/Reboot + [OK][BACK]
+   - 無操作超時 → 自動進入 WatchFace（秒數可在 System 設定）
+2. **WatchFace** (手錶頁面): 全螢幕 128x64，隱藏 StatusBar
+   - 大字時間（unscii_16）置中
+   - 日期 + 星期（`2026/05/21 WED`）置中
+   - 狀態（`G W R 85%`）置中
+   - 任意按鍵返回 StartUp
+3. **Radio**: CH/CTCSS/Power/RSSI/VOL/SQ + [SCAN][BACK]
+4. **Trekking**: Temp/Alt/Pres/Asc/Dist/Spd/Sat/Time/Stat/GPX/Map/Profile/Live + [START/PAUSE/STOP][BACK]
+5. **Profile** (子頁面): 海拔剖面圖全螢幕 Pan/Zoom
+6. **Map**: GPX 軌跡全螢幕 Pan/Zoom
+7. **Status**: TEMP/ALT/PRES/STEP/COMP + [BACK]
+8. **System**: WiFi(ON/OFF)/IP/Heap/Bright/TZ/Clock/Timeout/GPS/Ver/OTA/Reset WiFi/Reboot + [BACK]
 
 ### Trekking Page
 - 直接進入資料顯示（無 entry mode）
@@ -98,16 +104,27 @@ spiffs,    data, spiffs,  0x610000,  0x9F0000  (~10MB)
 
 ### Profile Page (海拔剖面圖 — 全螢幕)
 - **全螢幕 128x64** — 無 StatusBar、無 FuncBar
-- 進入時顯示完整海拔剖面（auto-fit 全距離範圍）
+- **兩條線同時顯示**：
+  - **白色實線** = GPX 軌跡（預定路線）
+  - **白色虛線/點** = 即時 GPS 記錄（實際走的）
+  - X 軸 = 距離(km)，Y 軸 = 海拔(m)
 - **操作模式**：
   - OK 短按：切換 Pan ↔ Zoom 模式
   - 右上角顯示模式圖示：`P`（平移）/ `Z`（縮放）
   - UP/DOWN（Pan 模式）：沿距離軸左右平移（20%/次）
-  - UP/DOWN（Zoom 模式）：放大/縮小距離軸
+  - UP/DOWN（Zoom 模式）：放大/縮小
   - 長按 OK 3 秒：返回 Trekking 頁面
-- X 軸 = 距離(km)，Y 軸 = 海拔(m)
-- 從 SPIFFS 讀取選中的 GPX（fallback 第一個檔案）
-- Bresenham 折線繪製，自動 clamp 到可視範圍
+- **GPS 位置標記**：▽ 倒三角形（GPX 最近點），超出可視範圍 clamp 到左邊
+- 距離刻度 tick marks + 左下角標示間距
+
+### Live Page (即時海拔 — 全螢幕, TODO)
+- **全螢幕 128x64** — 無 StatusBar、無 FuncBar
+- **即時 GPS 記錄**：
+  - X 軸 = 時間（分鐘/小時）
+  - Y 軸 = 海拔(m)
+  - 每 10 秒記錄一個點，最多 128 點
+- **操作模式**：同 Profile（Pan/Zoom/長按返回）
+- 記錄中即時更新，STOP 時清除
 
 ### Map Page Design (全螢幕重新設計)
 - **全螢幕 128x64** — 無 StatusBar、無 FuncBar
@@ -129,6 +146,8 @@ spiffs,    data, spiffs,  0x610000,  0x9F0000  (~10MB)
 | Brightness | system/bright | 1-8 |
 | Timezone | system/tz | UTC-12 ~ UTC+14 |
 | Clock Format | system/24h | 12H / 24H |
+| Screen Timeout | system/scrto | 5-60 sec (step 5) |
+| WiFi Enable | system/wifi | ON / OFF (default OFF) |
 | Radio Channel | radio/ch | 1-20 |
 | Radio Power | radio/pwr | LOW/HIGH |
 | Radio Volume | radio/vol | 1-8 |
@@ -143,9 +162,17 @@ spiffs,    data, spiffs,  0x610000,  0x9F0000  (~10MB)
 - Version 定義在 `src/App/Configs/Version.h`
 
 ### StatusBar
-- 左側：時間（支援 12H/24H 格式）
+- 佈局：`[HH:MM] [G W R] [85%/TX]`
+- 左側：時間（unscii_8，支援 12H/24H 格式）
+- 中間：狀態圖示（文字縮寫）
+  - `G` = GPS 已定位 / `g` = 無定位
+  - `W` = WiFi 已連線 / `w` = 未連線
+  - `R` = Radio 模組就緒
 - 右側：電池百分比 / PTT 按下時顯示 "TX"
-- NTP 同步：Clock_Init 後自動同步（WiFi 已連線時）
+- 時間同步優先順序：
+  1. GPS 時間（開機後 GPS 有效即同步 UTC，不需 WiFi）
+  2. NTP（WiFi 連線後同步，備援）
+- 日期/時間自動套用 NVS 儲存的時區設定
 
 ### WebGUI Extensions
 - GPX file upload (HTTP POST /upload?name=xxx → parse → /gpx/NNN.bin)
@@ -181,9 +208,17 @@ spiffs,    data, spiffs,  0x610000,  0x9F0000  (~10MB)
 - UP/DOWN: navigate menu items
 - DOWN past last item → enter FuncBar
 - UP in FuncBar → back to menu
-- OK: execute selected item or FuncBar action
+- OK 短按: execute selected item or FuncBar action
+- OK 長按 3 秒: **所有頁面統一返回主選單**（Profile 返回 Trekking）
 - `>` = selected, `*` = edit mode
 - 進入頁面時 debounce（lastBtnTime = millis()）防止 OK 誤觸
+
+### Trekking FuncBar 狀態機
+| 狀態 | FuncBar 按鈕 | 按下效果 |
+|------|-------------|---------|
+| READY | [START] | 開始記錄 |
+| RUNNING | [PAUSE] | 暫停記錄 |
+| PAUSED | [STOP] | 重置所有數據回 READY |
 
 ### LVGL Race Condition Fix
 - `main.cpp`: App_Init() 包在 `xSemaphoreTake/Give(xGuiSemaphore)` 中
@@ -218,6 +253,25 @@ spiffs,    data, spiffs,  0x610000,  0x9F0000  (~10MB)
 - [x] GPS course/heading field added to GPS_Info_t
 - [x] Profile: fullscreen Pan/Zoom, GPS position ▽ marker, distance scale ticks
 - [x] Map: fullscreen Pan/Zoom, hide StatusBar
+- [x] GPS time sync (date+time from GPS UTC, fallback NTP)
+- [x] Trekking: added Speed and Satellites items
+- [x] WatchFace page (fullscreen clock, auto-enter from StartUp)
+- [x] Screen timeout setting in System (NVS persistent)
+- [x] System WiFi ON/OFF toggle
+- [x] System FuncBar simplified (only [BACK])
+- [x] StatusBar icons (G/W/R) moved to right of time
+- [x] Live page (realtime elevation chart, X=time)
+- [x] Map moved to Trekking sub-page
+- [x] Map GPS arrow rotated by course heading
+- [x] System WiFi ON/OFF toggle (NVS persistent, default OFF)
+- [x] System FuncBar simplified (only [BACK])
+- [x] All pages: long press OK 3s = return to menu
+- [x] GPS time sync (only when NTP not synced + location valid + year 2025-2030)
+- [x] NTP priority over GPS time
+- [x] StartUp 4 items (Radio/Trekking/Status/System)
+- [x] WatchFace idle timeout fix (justReturned flag)
+- [x] System OK short press fix (okShortPress flag)
+- [x] Profile/Live share canvas buffer (save 16KB DRAM)
 
 ## Future Features (TODO)
 

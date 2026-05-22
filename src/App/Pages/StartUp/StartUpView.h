@@ -13,14 +13,14 @@ public:
     void Delete();
     void SetSelected(int index);
     int GetSelected() { return selectedIndex; }
-    int GetMenuCount() { return 5; }
+    int GetMenuCount() { return 4; }
 
 public:
     struct
     {
         lv_obj_t* cont;
         lv_obj_t* menuList;
-        lv_obj_t* menuItems[5];
+        lv_obj_t* menuItems[4];
         lv_obj_t* bottomBar;
         lv_obj_t* dateLabel;
         lv_obj_t* labelLogo;
@@ -29,7 +29,7 @@ public:
 
 private:
     int selectedIndex = 0;
-    static const char* menuTexts[5];
+    static const char* menuTexts[4];
 };
 
 }

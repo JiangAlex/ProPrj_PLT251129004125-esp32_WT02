@@ -1,10 +1,11 @@
 #include "SystemView.h"
+#include "App/Common/HAL/HAL.h"
 
 using namespace Page;
 
 enum SysItem {
     SYS_WIFI = 0, SYS_IP, SYS_HEAP, SYS_BRIGHT, SYS_TIMEZONE,
-    SYS_CLOCK_FMT, SYS_GPS, SYS_VERSION, SYS_OTA, SYS_RESET_WIFI, SYS_REBOOT
+    SYS_CLOCK_FMT, SYS_SCRTO, SYS_GPS, SYS_VERSION, SYS_OTA, SYS_RESET_WIFI, SYS_REBOOT
 };
 
 void SystemView::Create(lv_obj_t *root)
@@ -50,7 +51,7 @@ void SystemView::Create(lv_obj_t *root)
     lbl_func = lv_label_create(ui_func_bar);
     lv_obj_set_style_text_font(lbl_func, &lv_font_unscii_8, 0);
     lv_obj_set_style_text_color(lbl_func, lv_color_white(), 0);
-    lv_label_set_text(lbl_func, "  [OK]     [BACK]");
+    lv_label_set_text(lbl_func, "           [BACK]");
     lv_obj_align(lbl_func, LV_ALIGN_LEFT_MID, 0, 0);
 
     selectedIndex = 0;
@@ -79,7 +80,7 @@ void SystemView::UpdateView(SystemModel *model)
         }
         switch (i) {
             case SYS_WIFI:
-                snprintf(buf, sizeof(buf), "%sWiFi: %s", prefix, model->IsWiFiConnected() ? "ON" : "OFF");
+                snprintf(buf, sizeof(buf), "%sWiFi: %s", prefix, HAL::WiFi_IsEnabled() ? "ON" : "OFF");
                 break;
             case SYS_IP:
                 snprintf(buf, sizeof(buf), "%sIP:%s", prefix, model->GetIP().c_str());
@@ -95,6 +96,9 @@ void SystemView::UpdateView(SystemModel *model)
                 break;
             case SYS_CLOCK_FMT:
                 snprintf(buf, sizeof(buf), "%sClock: %s", prefix, model->Is24Hour() ? "24H" : "12H");
+                break;
+            case SYS_SCRTO:
+                snprintf(buf, sizeof(buf), "%sTimeout:%ds", prefix, HAL::Clock_GetScreenTimeout());
                 break;
             case SYS_GPS:
                 snprintf(buf, sizeof(buf), "%sGPS: %d sat", prefix, model->GetGPSSatellites());
@@ -120,12 +124,9 @@ void SystemView::UpdateView(SystemModel *model)
 
     // FuncBar
     if (inFuncArea) {
-        if (funcSelectedIndex == SYS_FUNC_OK)
-            lv_label_set_text(lbl_func, "> [OK]     [BACK]");
-        else
-            lv_label_set_text(lbl_func, "  [OK]   > [BACK]");
+        lv_label_set_text(lbl_func, "         > [BACK]");
     } else {
-        lv_label_set_text(lbl_func, "  [OK]     [BACK]");
+        lv_label_set_text(lbl_func, "           [BACK]");
     }
 }
 

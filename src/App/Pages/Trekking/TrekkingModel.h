@@ -26,6 +26,8 @@ public:
     float GetTemperature();
     float GetPressure();
     float GetAscent();
+    float GetSpeed();
+    int GetSatellites();
 
     // GPX file selection
     int GetGPXFileCount();
@@ -35,6 +37,13 @@ public:
 
     // Static access for Profile page
     static String activeGPXPath;
+
+    // Live recording buffer (public for Profile access)
+    static const int LIVE_MAX_PTS = 128;
+    struct LivePoint { float time_sec; float alt; };
+    static LivePoint livePts[];
+    static int livePtCount;
+    static float liveMaxTime;
 
 private:
     Account* account;

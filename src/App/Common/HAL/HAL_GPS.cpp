@@ -1,5 +1,7 @@
 #include "HAL.h"
 #include <TinyGPSPlus.h>
+#include <time.h>
+#include <sys/time.h>
 
 #define GPS_RX_PIN  14
 #define GPS_TX_PIN  27
@@ -14,10 +16,44 @@ void HAL::GPS_Init() {
     Serial.printf("[GPS] Init: UART1 RX=%d TX=%d @ %d\n", GPS_RX_PIN, GPS_TX_PIN, GPS_BAUD);
 }
 
+static bool gps_time_synced = false;
+
 void HAL::GPS_Update() {
     if (!gps_initialized) return;
     while (Serial1.available()) {
         gps.encode(Serial1.read());
+    }
+
+    // Sync system clock from GPS time (once, when valid)
+    if (!gps_time_synced && !HAL::Clock_IsSynced()
+        && gps.time.isValid() && gps.date.isValid() 
+        && gps.date.year() >= 2025 && gps.date.year() <= 2030
+        && gps.location.isValid()) {
+        struct tm t = {};
+        t.tm_year = gps.date.year() - 1900;
+        t.tm_mon = gps.date.month() - 1;
+        t.tm_mday = gps.date.day();
+        t.tm_hour = gps.time.hour();
+        t.tm_min = gps.time.minute();
+        t.tm_sec = gps.time.second();
+        // Use mktime then subtract timezone offset to get true UTC epoch
+        // Or set TZ to UTC temporarily
+        setenv("TZ", "UTC0", 1);
+        tzset();
+        time_t epoch = mktime(&t);
+        // Restore timezone
+        int8_t tz = HAL::Clock_GetTimezone();
+        char tzStr[16];
+        snprintf(tzStr, sizeof(tzStr), "UTC%+d", -tz);
+        setenv("TZ", tzStr, 1);
+        tzset();
+
+        struct timeval tv = { .tv_sec = epoch };
+        settimeofday(&tv, NULL);
+        gps_time_synced = true;
+        Serial.printf("[GPS] Time synced: %04d-%02d-%02d %02d:%02d:%02d UTC\n",
+                      gps.date.year(), gps.date.month(), gps.date.day(),
+                      gps.time.hour(), gps.time.minute(), gps.time.second());
     }
 }
 
