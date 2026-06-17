@@ -78,6 +78,9 @@ void HAL::SA818_Init()
     pinMode(CONFIG_SA818_PD_PIN, OUTPUT);
     pinMode(CONFIG_SA818_HL_PIN, OUTPUT);
 
+    // SQ pin: SA818 squelch output (LOW = signal present)
+    pinMode(CONFIG_SA818_SQ_PIN, INPUT);
+
     // Reset the module by toggling the Power Down pin to ensure a clean start
     Serial.println("SA818_Init: Resetting module via PD pin...");
     digitalWrite(CONFIG_SA818_PD_PIN, LOW);  // Power Down (Sleep)
@@ -149,6 +152,13 @@ void HAL::SA818_Init()
 // This function is called periodically by HAL_Update
 void HAL::SA818_Update()
 {
+    // In RX mode, control PAM8302 (SD# on GPIO13) based on SQ pin (GPIO4)
+    // SQ LOW = signal present -> enable PAM8302; SQ HIGH = no signal -> mute
+    if (!ptt_state) {
+        bool sq_active = (digitalRead(CONFIG_SA818_SQ_PIN) == LOW);
+        digitalWrite(CONFIG_SA818_PTT_PIN, sq_active ? HIGH : LOW);
+    }
+
     int16_t new_rssi = sa818.scanRSSI();
     // Only notify if RSSI changed significantly or periodically? 
     // For now, let's update global variable. 

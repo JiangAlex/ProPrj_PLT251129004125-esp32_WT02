@@ -7,6 +7,11 @@ using namespace Page;
 #define BTN_DOWN 34
 #define BTN_OK 32
 
+static void asyncPop(void *data) {
+    Map *inst = (Map *)data;
+    inst->Manager->Pop();
+}
+
 Map::Map() : timer(nullptr), lastBtnTime(0), mode(MAP_MODE_PAN),
     centerLat(0), centerLon(0), zoom(0.01f), trackIdx(0),
     okPressStart(0), okLongHandled(false) {}
@@ -59,13 +64,15 @@ void Map::onViewLoad()
 
 void Map::onViewWillAppear() {
     // Hide StatusBar for fullscreen
-    lv_obj_add_flag(lv_obj_get_child(lv_layer_top(), 0), LV_OBJ_FLAG_HIDDEN);
+    lv_obj_t *sb = lv_obj_get_child(lv_layer_top(), 0);
+    if (sb) lv_obj_add_flag(sb, LV_OBJ_FLAG_HIDDEN);
 }
 void Map::onViewDidAppear() {}
 void Map::onViewWillDisappear() {
     if (timer) { lv_timer_del(timer); timer = nullptr; }
     // Restore StatusBar
-    lv_obj_clear_flag(lv_obj_get_child(lv_layer_top(), 0), LV_OBJ_FLAG_HIDDEN);
+    lv_obj_t *sb = lv_obj_get_child(lv_layer_top(), 0);
+    if (sb) lv_obj_clear_flag(sb, LV_OBJ_FLAG_HIDDEN);
 }
 void Map::onViewDidDisappear() {}
 void Map::onViewDidUnload() {
@@ -92,8 +99,8 @@ void Map::onTimer(lv_timer_t *timer)
             inst->okPressStart = now;
             inst->okLongHandled = false;
         } else if (!inst->okLongHandled && (now - inst->okPressStart > 3000)) {
-            // Long press: exit
-            inst->Manager->Pop();
+            // Long press: exit (async to avoid deleting objects inside timer callback)
+            lv_async_call(asyncPop, inst);
             inst->okLongHandled = true;
             return;
         }

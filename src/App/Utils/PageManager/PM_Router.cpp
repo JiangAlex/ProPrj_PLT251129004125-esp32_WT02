@@ -212,14 +212,14 @@ void PageManager::SwitchTo(PageBase* newNode, bool isPushAct, const PageBase::St
     if (AnimState.IsPushing)
     {
         PM_LOG_INFO("Page PUSH is detect, move Page(%s) to foreground", PageCurrent->Name);
-        if (PagePrev)lv_obj_move_foreground(PagePrev->root);
-        lv_obj_move_foreground(PageCurrent->root);
+        if (PagePrev && PagePrev->root)lv_obj_move_foreground(PagePrev->root);
+        if (PageCurrent->root)lv_obj_move_foreground(PageCurrent->root);
     }
     else
     {
         PM_LOG_INFO("Page POP is detect, move Page(%s) to foreground", GetPagePrevName());
-        lv_obj_move_foreground(PageCurrent->root);
-        if (PagePrev)lv_obj_move_foreground(PagePrev->root);
+        if (PageCurrent->root)lv_obj_move_foreground(PageCurrent->root);
+        if (PagePrev && PagePrev->root)lv_obj_move_foreground(PagePrev->root);
     }
 }
 

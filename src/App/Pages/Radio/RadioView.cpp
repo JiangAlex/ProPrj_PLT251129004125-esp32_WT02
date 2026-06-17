@@ -73,10 +73,10 @@ void RadioView::Create(lv_obj_t *root)
     ui.infoList = infoList;
     ui.cont = infoList;
 
-    // 創建 6 個資訊項目（每項 9px 高）
+    // 創建 6 個資訊項目（每項 17px 高）
     for (int i = 0; i < RADIO_ITEM_COUNT; i++) {
         lv_obj_t* item = lv_label_create(infoList);
-        lv_obj_set_style_text_font(item, &lv_font_unscii_8, 0);
+        lv_obj_set_style_text_font(item, &lv_font_unscii_16, 0);
         lv_label_set_text(item, "");
         lv_obj_set_width(item, 128);
         lv_obj_set_style_pad_left(item, 0, 0);

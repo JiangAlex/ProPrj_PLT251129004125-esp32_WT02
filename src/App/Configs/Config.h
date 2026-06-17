@@ -85,8 +85,9 @@
 #define CONFIG_SA818_TX_PIN            16   // ESP32 TX -> SA818 RX
 #define CONFIG_SA818_PD_PIN            26   // SA818 PD pin 6 (Power Down control)
 #define CONFIG_SA818_HL_PIN            18   // SA818 H/L pin 1 (High/Low Power control)
-#define CONFIG_SA818_SQ_PIN            36
+#define CONFIG_SA818_SQ_PIN            4    // SA818 SQ pin 1 (LOW = signal present)
 #define CONFIG_SA818_PTT_PIN           13   // SA818 PTT control line
+#define CONFIG_AF_SW_PIN               2    // U15 SN74LVC1G3157 audio switch (S pin) -> U16 PAM8302
 #define CONFIG_SA818_BAUD              9600 // Fixed baud rate
 #define CONFIG_SA818_BAUD_ALT          115200 // Alternative baud rate (unused)
 
