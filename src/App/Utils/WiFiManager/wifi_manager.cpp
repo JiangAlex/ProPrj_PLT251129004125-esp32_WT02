@@ -6,6 +6,8 @@ WiFiManager::WiFiManager() {
     status = WM_IDLE;
     portalActive = false;
     autoConnect = true;
+    scanBusy = false;
+    pendingConnect = false;
     deviceName = "ESP32-OffLineMap";
     
     // 初始化配置
@@ -48,10 +50,26 @@ void WiFiManager::begin(const char* apSSID, const char* apPassword) {
 }
 
 void WiFiManager::loop() {
+    // Handle deferred WiFi connection (set by handleWiFiSave)
+    if (pendingConnect) {
+        pendingConnect = false;
+        delay(2000);
+        stopConfigPortal();
+        if (!autoConnectToWiFi()) {
+            Serial.println("WiFiManager: Connection failed, restarting portal");
+            startConfigPortal();
+        }
+        return;
+    }
+
     if (portalActive && server) {
-        server->handleClient();
-        if (dnsServer) {
-            dnsServer->processNextRequest();
+        // Only process web/dns requests when stations are connected to AP
+        if (WiFi.softAPgetStationNum() > 0) {
+            yield();
+            server->handleClient();
+            if (dnsServer) {
+                dnsServer->processNextRequest();
+            }
         }
         
         // 檢查入口超時
@@ -172,6 +190,11 @@ void WiFiManager::setupWebServer() {
     server->on("/save", [this]() { handleWiFiSave(); });
     server->on("/info", [this]() { handleInfo(); });
     server->on("/reset", [this]() { handleReset(); });
+    // Captive portal detection endpoints - respond quickly to prevent client timeout crashes
+    server->on("/hotspot-detect.html", [this]() { server->sendHeader("Location", "/", true); server->send(302, "text/plain", ""); });
+    server->on("/generate_204", [this]() { server->send(204); });
+    server->on("/connecttest.txt", [this]() { server->sendHeader("Location", "/", true); server->send(302, "text/plain", ""); });
+    server->on("/fwlink", [this]() { server->sendHeader("Location", "/", true); server->send(302, "text/plain", ""); });
     server->onNotFound([this]() { handleNotFound(); });
     
     server->begin();
@@ -189,7 +212,28 @@ void WiFiManager::handleRoot() {
 
 void WiFiManager::handleWiFiScan() {
     Serial.println("WiFiManager: Handling WiFi scan request");
+
+    if (scanBusy) {
+        server->send(200, "application/json", "{\"scanning\":true}");
+        return;
+    }
+
+    int n = WiFi.scanComplete();
+    if (n == WIFI_SCAN_FAILED) {
+        WiFi.scanDelete();
+        WiFi.scanNetworks(true, false, false, 300);
+        server->send(200, "application/json", "{\"scanning\":true}");
+        return;
+    }
+    if (n == WIFI_SCAN_RUNNING) {
+        server->send(200, "application/json", "{\"scanning\":true}");
+        return;
+    }
+
+    // Scan complete, build results
+    scanBusy = true;
     String result = scanNetworks();
+    scanBusy = false;
     Serial.printf("WiFiManager: Scan result length: %d\n", result.length());
     server->send(200, "application/json", result);
 }
@@ -215,10 +259,8 @@ void WiFiManager::handleWiFiSave() {
         
         server->send(200, "text/html", getSuccessPage());
         
-        // 延遲後嘗試連接
-        delay(2000);
-        stopConfigPortal();
-        autoConnectToWiFi();
+        // Defer connection attempt to loop() to avoid use-after-free
+        pendingConnect = true;
     } else {
         Serial.println("WiFiManager: Missing SSID or password parameters");
         server->send(400, "text/html", "<h1>Missing parameters</h1>");
@@ -294,17 +336,21 @@ void WiFiManager::resetSettings() {
 
 String WiFiManager::scanNetworks() {
     JsonDocument doc;
-    //JsonArray networks = doc.createNestedArray("networks");
     JsonArray networks = doc["networks"].to<JsonArray>();
-    
-    int n = WiFi.scanNetworks();
-    for (int i = 0; i < n; i++) {
-        JsonObject network = networks.add<JsonObject>();
-        network["ssid"] = WiFi.SSID(i);
-        network["rssi"] = WiFi.RSSI(i);
-        network["secure"] = (WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
+
+    int n = WiFi.scanComplete();
+    Serial.printf("WiFiManager: scanNetworks result: %d\n", n);
+
+    if (n > 0) {
+        for (int i = 0; i < n; i++) {
+            JsonObject network = networks.add<JsonObject>();
+            network["ssid"] = WiFi.SSID(i);
+            network["rssi"] = WiFi.RSSI(i);
+            network["secure"] = (WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
+        }
     }
-    
+    WiFi.scanDelete();
+
     String result;
     serializeJson(doc, result);
     return result;

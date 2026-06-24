@@ -45,6 +45,5 @@ void loop() {
     }
   #endif
 
-  HAL::HAL_Update(); /* HAL Update */
   delay(5);  //5ms
 }

@@ -58,7 +58,7 @@ void HAL::HAL_Init(void)
     xTaskCreate(
         task_hal_update_handler,
         "Hal",
-        1024 * 5,
+        1024 * 8,
         nullptr,
         5,
         nullptr);
@@ -80,7 +80,7 @@ void HAL::HAL_Update(void)
     __IntervalExecute(HAL::GPS_Update(), 100);    // Feed GPS NMEA data
     #ifdef ENABLE_WEB_GUI
     __IntervalExecute(HAL::WebServer_Update(), 100);  // Push framebuffer at ~10 FPS
-    __IntervalExecute(HAL::WiFi_Update(), 50);        // Handle WiFiManager portal
+    __IntervalExecute(HAL::WiFi_Update(), 200);       // Handle WiFiManager portal
     #endif
     //__IntervalExecute(HAL::GPS_Update(), 500);
     //__IntervalExecute(HAL::ENV_Update(), 100);

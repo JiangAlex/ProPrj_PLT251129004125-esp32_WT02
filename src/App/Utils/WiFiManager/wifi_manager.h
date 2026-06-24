@@ -47,6 +47,8 @@ private:
     unsigned long portalStartTime;
     bool portalActive;
     bool autoConnect;
+    bool scanBusy;
+    bool pendingConnect;
     String deviceName;
     
     // 私有方法

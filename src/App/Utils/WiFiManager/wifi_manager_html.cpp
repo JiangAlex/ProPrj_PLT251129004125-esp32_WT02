@@ -229,20 +229,33 @@ String WiFiManager::getConfigPage() {
 
     <script>
         var networks = [];
+        var scanInProgress = false;
         
         function scanNetworks() {
+            if (scanInProgress) return;
+            scanInProgress = true;
             var networkList = document.getElementById("networkList");
             networkList.style.display = "block";
             networkList.innerHTML = "<div class=\"loading\">Scanning networks...</div>";
             
+            pollScan();
+        }
+        
+        function pollScan() {
             fetch("/scan")
                 .then(function(response) { return response.json(); })
                 .then(function(data) {
-                    networks = data.networks;
-                    displayNetworks(networks);
+                    if (data.scanning) {
+                        setTimeout(pollScan, 1500);
+                    } else {
+                        networks = data.networks || [];
+                        displayNetworks(networks);
+                        scanInProgress = false;
+                    }
                 })
                 .catch(function(error) {
-                    networkList.innerHTML = "<div class=\"loading\">Scan failed, please retry</div>";
+                    document.getElementById("networkList").innerHTML = "<div class=\"loading\">Scan failed, please retry</div>";
+                    scanInProgress = false;
                 });
         }
         

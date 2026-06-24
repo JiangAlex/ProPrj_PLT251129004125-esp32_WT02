@@ -77,6 +77,8 @@ void HAL::SA818_Init()
     // Initialize control pins
     pinMode(CONFIG_SA818_PD_PIN, OUTPUT);
     pinMode(CONFIG_SA818_HL_PIN, OUTPUT);
+    pinMode(CONFIG_AF_SW_PIN, OUTPUT);
+    digitalWrite(CONFIG_AF_SW_PIN, LOW);  // Default mute
 
     // SQ pin: SA818 squelch output (LOW = signal present)
     pinMode(CONFIG_SA818_SQ_PIN, INPUT);
@@ -152,11 +154,11 @@ void HAL::SA818_Init()
 // This function is called periodically by HAL_Update
 void HAL::SA818_Update()
 {
-    // In RX mode, control PAM8302 (SD# on GPIO13) based on SQ pin (GPIO4)
-    // SQ LOW = signal present -> enable PAM8302; SQ HIGH = no signal -> mute
+    // In RX mode, control audio switch (AF_SW_PIN) based on SQ pin
+    // SQ LOW = signal present -> enable audio; SQ HIGH = no signal -> mute
     if (!ptt_state) {
         bool sq_active = (digitalRead(CONFIG_SA818_SQ_PIN) == LOW);
-        digitalWrite(CONFIG_SA818_PTT_PIN, sq_active ? HIGH : LOW);
+        digitalWrite(CONFIG_AF_SW_PIN, sq_active ? HIGH : LOW);
     }
 
     int16_t new_rssi = sa818.scanRSSI();
