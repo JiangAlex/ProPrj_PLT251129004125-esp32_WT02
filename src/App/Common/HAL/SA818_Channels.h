@@ -12,7 +12,19 @@
 #define SA818_MIN_CHANNEL 1
 #define SA818_MAX_CHANNEL 20
 
-// VHF Frequency bounds (MHz)
+#ifdef CONFIG_SA818_UHF
+// ========== UHF Configuration (400-480 MHz) ==========
+#define SA818_FREQ_MIN 400.0f
+#define SA818_FREQ_MAX 480.0f
+#define SA818_BAND_NAME "UHF"
+#else
+// ========== VHF Configuration (134-174 MHz) ==========
+#define SA818_FREQ_MIN 134.0f
+#define SA818_FREQ_MAX 174.0f
+#define SA818_BAND_NAME "VHF"
+#endif
+
+// VHF Frequency bounds (MHz) - kept for legacy
 #define VHF_FREQ_MIN 134.0f
 #define VHF_FREQ_MAX 174.0f
 #define VHF_SIMPLEX_MIN 144.0f
@@ -90,12 +102,50 @@ static const SA818_CustomChannel_t VHF_CHANNELS[SA818_MAX_CHANNELS] = {
     {20, "SMX-9",  147.5000, 147.5000, CH_SIMPLEX_RECEIVE,  CTCSS_OFF,    CTCSS_OFF,    SA818_LOW_POWER}
 };
 
+// 20 Pre-defined UHF Channels (430-440 MHz Amateur Band)
+static const SA818_CustomChannel_t UHF_CHANNELS[SA818_MAX_CHANNELS] = {
+    // Channel 1-5: FM Simplex (430-432 MHz)
+    {1,  "SMX-1",  430.0000, 430.0000, CH_SIMPLEX_RECEIVE,  CTCSS_OFF,    CTCSS_OFF,    SA818_LOW_POWER},
+    {2,  "SMX-2",  430.0250, 430.0250, CH_SIMPLEX_RECEIVE,  CTCSS_OFF,    CTCSS_OFF,    SA818_LOW_POWER},
+    {3,  "SMX-3",  430.0500, 430.0500, CH_SIMPLEX_RECEIVE,  CTCSS_OFF,    CTCSS_OFF,    SA818_LOW_POWER},
+    {4,  "SMX-4",  430.0750, 430.0750, CH_SIMPLEX_RECEIVE,  CTCSS_OFF,    CTCSS_OFF,    SA818_LOW_POWER},
+    {5,  "SMX-5",  430.1000, 430.1000, CH_SIMPLEX_RECEIVE,  CTCSS_100HZ,  CTCSS_100HZ, SA818_LOW_POWER},
+
+    // Channel 6-10: Repeater (TX=431MHz, RX=436MHz, +5MHz offset)
+    {6,  "RPT-IN", 431.0000, 436.0000, CH_REPEATER_INPUT,   CTCSS_100HZ,  CTCSS_OFF,    SA818_HIGH_POWER},
+    {7,  "RPT-OUT",436.0000, 431.0000, CH_REPEATER_OUTPUT,  CTCSS_OFF,    CTCSS_100HZ,  SA818_HIGH_POWER},
+    {8,  "RPT-2I", 431.0250, 436.0250, CH_REPEATER_INPUT,   CTCSS_123HZ,  CTCSS_OFF,    SA818_HIGH_POWER},
+    {9,  "RPT-2O", 436.0250, 431.0250, CH_REPEATER_OUTPUT,  CTCSS_OFF,    CTCSS_123HZ,  SA818_HIGH_POWER},
+    {10, "RPT-3I", 431.0500, 436.0500, CH_REPEATER_INPUT,   CTCSS_151HZ,  CTCSS_OFF,    SA818_HIGH_POWER},
+
+    // Channel 11-15: More repeater and simplex
+    {11, "RPT-3O", 436.0500, 431.0500, CH_REPEATER_OUTPUT,  CTCSS_OFF,    CTCSS_151HZ,  SA818_HIGH_POWER},
+    {12, "CALL",   433.5000, 433.5000, CH_SIMPLEX_RECEIVE,  CTCSS_123HZ,  CTCSS_123HZ, SA818_LOW_POWER},
+    {13, "SMX-6",  433.0000, 433.0000, CH_SIMPLEX_RECEIVE,  CTCSS_OFF,    CTCSS_OFF,    SA818_LOW_POWER},
+    {14, "SMX-7",  433.0250, 433.0250, CH_SIMPLEX_RECEIVE,  CTCSS_OFF,    CTCSS_OFF,    SA818_LOW_POWER},
+    {15, "SMX-8",  433.0500, 433.0500, CH_SIMPLEX_RECEIVE,  CTCSS_OFF,    CTCSS_OFF,    SA818_LOW_POWER},
+
+    // Channel 16-20: 435-438 MHz band
+    {16, "RPT-4I", 431.5000, 436.5000, CH_REPEATER_INPUT,   CTCSS_100HZ,  CTCSS_OFF,    SA818_HIGH_POWER},
+    {17, "RPT-4O", 436.5000, 431.5000, CH_REPEATER_OUTPUT,  CTCSS_OFF,    CTCSS_100HZ,  SA818_HIGH_POWER},
+    {18, "RPT-5I", 431.5250, 436.5250, CH_REPEATER_INPUT,   CTCSS_151HZ,  CTCSS_OFF,    SA818_HIGH_POWER},
+    {19, "RPT-5O", 436.5250, 431.5250, CH_REPEATER_OUTPUT,  CTCSS_OFF,    CTCSS_151HZ,  SA818_HIGH_POWER},
+    {20, "SMX-9",  435.0000, 435.0000, CH_SIMPLEX_RECEIVE,  CTCSS_OFF,    CTCSS_OFF,    SA818_LOW_POWER}
+};
+
+// Select active channel table based on build flag
+#ifdef CONFIG_SA818_UHF
+#define SA818_CHANNELS UHF_CHANNELS
+#else
+#define SA818_CHANNELS VHF_CHANNELS
+#endif
+
 // Get channel structure by channel number (1-20)
 inline const SA818_CustomChannel_t* getChannel(int channel) {
     if (channel < SA818_MIN_CHANNEL || channel > SA818_MAX_CHANNEL) {
         return NULL;
     }
-    return &VHF_CHANNELS[channel - 1];
+    return &SA818_CHANNELS[channel - 1];
 }
 
 // Get RX frequency for channel
@@ -116,9 +166,9 @@ inline const char* getChannelName(int channel) {
     return ch ? ch->name : "";
 }
 
-// Check if frequency is valid VHF
+// Check if frequency is valid for current band
 inline bool isValidVHFrequency(float freq) {
-    return (freq >= VHF_FREQ_MIN && freq <= VHF_FREQ_MAX);
+    return (freq >= SA818_FREQ_MIN && freq <= SA818_FREQ_MAX);
 }
 
 // Normalize frequency to 4 decimal places (12.5kHz channel spacing)
@@ -155,14 +205,11 @@ inline const char* getPowerModeName(SA818_PowerMode powerMode) {
 }
 
 inline const char* getFrequencyRange(SA818_PowerMode powerMode) {
-#if !defined(DRA818_CONFIG_UHF) || (DRA818_CONFIG_UHF == 0)
-    return (powerMode == SA818_LOW_POWER) ?
-           "144.0000-148.0000 MHz" :
-           "144.0000-148.0000 MHz";
+    (void)powerMode;
+#ifdef CONFIG_SA818_UHF
+    return "430.0000-440.0000 MHz";
 #else
-    return (powerMode == SA818_LOW_POWER) ?
-           "409.7500-409.9875 MHz" :
-           "430.1375-439.4375 MHz";
+    return "144.0000-148.0000 MHz";
 #endif
 }
 

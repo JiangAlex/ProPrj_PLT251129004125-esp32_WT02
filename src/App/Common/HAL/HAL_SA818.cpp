@@ -23,6 +23,7 @@ static Account* sa818_account = nullptr; // DataProc account for SA818
 static bool ptt_initialized = false;
 static bool ptt_state = false;         // 當前 PTT 狀態
 static bool prev_ptt_state = false;    // 前一次 PTT 狀態
+static bool sa818_tx_active = false;   // SA818 實際 TX 傳送狀態
 
 // SA818 state variables
 static int16_t g_sa818_rssi = -999;
@@ -78,10 +79,13 @@ void HAL::SA818_Init()
     pinMode(CONFIG_SA818_PD_PIN, OUTPUT);
     pinMode(CONFIG_SA818_HL_PIN, OUTPUT);
     pinMode(CONFIG_AF_SW_PIN, OUTPUT);
-    digitalWrite(CONFIG_AF_SW_PIN, LOW);  // Default mute
+    digitalWrite(CONFIG_AF_SW_PIN, LOW);  // Default mute (LOW = PAM8302 shutdown)
+    pinMode(CONFIG_MIC_SW_PIN, OUTPUT);
+    digitalWrite(CONFIG_MIC_SW_PIN, HIGH); // Default RX mode: MIC disconnected from SA818
 
     // SQ pin: SA818 squelch output (LOW = signal present)
     pinMode(CONFIG_SA818_SQ_PIN, INPUT);
+    Serial.printf("SA818_Init: SQ_PIN(GPIO%d) initial read = %d\n", CONFIG_SA818_SQ_PIN, digitalRead(CONFIG_SA818_SQ_PIN));
 
     // Reset the module by toggling the Power Down pin to ensure a clean start
     Serial.println("SA818_Init: Resetting module via PD pin...");
@@ -95,10 +99,19 @@ void HAL::SA818_Init()
     // Initialize serial port for SA818
     sa818_serial.begin(SA818_BAUD, SERIAL_8N1, CONFIG_SA818_RX_PIN, CONFIG_SA818_TX_PIN);
 
-    // Initialize the SA818 driver
+    // Initialize the SA818 driver with timeout protection
     bool connected = false;
-    for(int i = 0; i < 5; i++) {
-        if(sa818.begin(sa818_serial, CONFIG_SA818_PTT_PIN)) {
+    const int MAX_RETRIES = 3;
+    const unsigned long INIT_TIMEOUT_MS = 3000; // 整體 timeout 上限 3 秒
+    unsigned long initStart = millis();
+
+    for (int i = 0; i < MAX_RETRIES; i++) {
+        if (millis() - initStart > INIT_TIMEOUT_MS) {
+            Serial.printf("SA818_Init: Timeout reached (%lums), aborting connection.\n", INIT_TIMEOUT_MS);
+            break;
+        }
+        Serial.printf("SA818_Init: Attempt %d/%d...\n", i + 1, MAX_RETRIES);
+        if (sa818.begin(sa818_serial, CONFIG_SA818_PTT_PIN)) {
             connected = true;
             break;
         }
@@ -119,11 +132,16 @@ void HAL::SA818_Init()
         // We assume 0 for now. A lookup table will be needed for full functionality.
         float frequency = getSA818Frequency(current_power_mode, current_channel);
         
-        // Fix: If we are in VHF mode but got a UHF frequency (likely from default config), override it.
-        #if !defined(DRA818_CONFIG_UHF) || (DRA818_CONFIG_UHF == 0)
-        if (frequency > 200.0) {
-            frequency = 144.8000; // Default to a standard VHF frequency
-            Serial.println("SA818_Init: VHF Mode detected with UHF freq. Overriding to 144.8000 MHz.");
+        // Fix: Frequency sanity check based on module band
+        #ifdef CONFIG_SA818_UHF
+        if (frequency < 400.0 || frequency > 480.0) {
+            frequency = 433.5000; // Default UHF frequency
+            Serial.println("SA818_Init: Invalid freq for UHF. Overriding to 433.5000 MHz.");
+        }
+        #else
+        if (frequency > 174.0 || frequency < 134.0) {
+            frequency = 144.8000; // Default VHF frequency
+            Serial.println("SA818_Init: Invalid freq for VHF. Overriding to 144.8000 MHz.");
         }
         #endif
 
@@ -142,7 +160,9 @@ void HAL::SA818_Init()
         Serial.printf("SA818_Init: Set to Freq: %.4f MHz, Vol: %d, SQ: %d\n",
                       frequency, g_sa818_volume, g_sa818_squelch);
     } else {
-        Serial.println("SA818_Init: *** CONNECTION FAILED! Check wiring and power. ***");
+        unsigned long elapsed = millis() - initStart;
+        Serial.printf("SA818_Init: *** CONNECTION FAILED after %lums! Check wiring and power. ***\n", elapsed);
+        Serial.println("SA818_Init: Module will not be functional. Continuing without SA818.");
     }
 
     // Initialize DataProc Account
@@ -151,22 +171,19 @@ void HAL::SA818_Init()
     Serial.println("SA818_Init: Done...");
 }
 
-// This function is called periodically by HAL_Update
+// Fast audio mute control based on SQ pin (called every 50ms)
+void HAL::SA818_SQ_Update()
+{
+    if (!ptt_state) {
+        bool sq_active = (digitalRead(CONFIG_SA818_SQ_PIN) == LOW); // LOW = signal present
+        digitalWrite(CONFIG_AF_SW_PIN, sq_active ? HIGH : LOW);     // HIGH = PA on, LOW = PA off
+    }
+}
+
+// Slow RSSI polling (called every 2000ms)
 void HAL::SA818_Update()
 {
-    // In RX mode, control audio switch (AF_SW_PIN) based on SQ pin
-    // SQ LOW = signal present -> enable audio; SQ HIGH = no signal -> mute
-    if (!ptt_state) {
-        bool sq_active = (digitalRead(CONFIG_SA818_SQ_PIN) == LOW);
-        digitalWrite(CONFIG_AF_SW_PIN, sq_active ? HIGH : LOW);
-    }
-
     int16_t new_rssi = sa818.scanRSSI();
-    // Only notify if RSSI changed significantly or periodically? 
-    // For now, let's update global variable. 
-    // If we want real-time UI updates, we should notify.
-    // To avoid flooding, maybe check if value changed beyond a threshold?
-    
     if (abs(new_rssi - g_sa818_rssi) > 2 || new_rssi == -999) {
         g_sa818_rssi = new_rssi;
         SA818_Notify();
@@ -228,18 +245,22 @@ void HAL::PTT_Update() {
 }
 
 bool HAL::PTT_IsPressed() {
-    return ptt_state;
+    return ptt_state || sa818_tx_active;
 }
 
 void HAL::PTT_SetTransmit(bool enable) {
+    sa818_tx_active = enable;
     
     if (enable) {
+        digitalWrite(CONFIG_AF_SW_PIN, LOW);   // Mute SPK PA during TX
+        digitalWrite(CONFIG_MIC_SW_PIN, LOW);  // U14: route MIC audio to SA818 MIC_IN
         Serial.printf("PTT: Enabling transmission mode (GPIO %d LOW)\n", CONFIG_SA818_PTT_PIN);
         sa818.transmit(true);
         SA818_Notify(); // Notify state change
     } else {
         Serial.println("PTT: Disabling transmission mode (receive mode)");
         sa818.transmit(false);
+        digitalWrite(CONFIG_MIC_SW_PIN, HIGH); // U14: disconnect MIC from SA818
         SA818_Notify(); // Notify state change
     }
 }

@@ -79,6 +79,7 @@ void RadioView::Create(lv_obj_t *root)
         lv_obj_set_style_text_font(item, &lv_font_unscii_16, 0);
         lv_label_set_text(item, "");
         lv_obj_set_width(item, 128);
+        lv_label_set_long_mode(item, LV_LABEL_LONG_CLIP);  // 超出截斷，不換行
         lv_obj_set_style_pad_left(item, 0, 0);
         lv_obj_set_style_pad_ver(item, 1, 0);
         
@@ -136,32 +137,31 @@ void RadioView::UpdateDisplay()
             }
         }
         
-        // 根據項目類型格式化值
+        // 根據項目類型格式化值（每行最多 14 字元 safe @unscii_16）
         switch (i) {
             case RADIO_ITEM_CH:
-                snprintf(buf, sizeof(buf), "%sCH:%d %.4f", prefix, values[i], current_frequency);
+                snprintf(buf, sizeof(buf), "%sCH%d", prefix, values[i]);
                 break;
             case RADIO_ITEM_CTCSS:
-                // 索引 0 = OFF, 索引 1-38 對應 ctcssTable[0-37]
                 if (values[i] == 0) {
-                    snprintf(buf, sizeof(buf), "%sCTCSS: OFF", prefix);
+                    snprintf(buf, sizeof(buf), "%sCT:OFF", prefix);
                 } else if (values[i] > 0 && values[i] <= ctcssCount) {
-                    snprintf(buf, sizeof(buf), "%sCTCSS: %.1f", prefix, ctcssTable[values[i] - 1]);
+                    snprintf(buf, sizeof(buf), "%sCT:%.1f", prefix, ctcssTable[values[i] - 1]);
                 } else {
-                    snprintf(buf, sizeof(buf), "%sCTCSS: ---", prefix);
+                    snprintf(buf, sizeof(buf), "%sCT:---", prefix);
                 }
                 break;
             case RADIO_ITEM_POWER:
-                snprintf(buf, sizeof(buf), "%sPower: %s", prefix, values[i] ? "HIGH" : "LOW");
+                snprintf(buf, sizeof(buf), "%sPWR:%s", prefix, values[i] ? "HI" : "LO");
                 break;
             case RADIO_ITEM_RSSI:
-                snprintf(buf, sizeof(buf), "%sRSSI: %ddBm", prefix, values[i]);
+                snprintf(buf, sizeof(buf), "%sRSSI:%d", prefix, values[i]);
                 break;
             case RADIO_ITEM_VOL:
-                snprintf(buf, sizeof(buf), "%sVOL: %d", prefix, values[i]);
+                snprintf(buf, sizeof(buf), "%sVOL:%d", prefix, values[i]);
                 break;
             case RADIO_ITEM_CQL:
-                snprintf(buf, sizeof(buf), "%sSQ: %d", prefix, values[i]);
+                snprintf(buf, sizeof(buf), "%sSQ:%d", prefix, values[i]);
                 break;
         }
         

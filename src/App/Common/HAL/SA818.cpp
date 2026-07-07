@@ -142,10 +142,23 @@ bool SA818::executeCommand(const char* command_format, ...)
     delay(100); // Crucial delay for SA818
 
     // The expected response is the command name with a "+0" or similar success code.
-    // For example, "AT+DMOSETGROUP" should respond with "+DMOSETGROUP:0".
+    // For example, "AT+DMOSETGROUP=..." should respond with "+DMOSETGROUP:0".
     char expected_response[32];
     const char* cmd_name = strstr(command, "AT+") + 3;
-    snprintf(expected_response, sizeof(expected_response), "+%s:0", cmd_name);
+    
+    // Extract only the command name (before '=' if present)
+    char cmd_only[32];
+    const char* eq_pos = strchr(cmd_name, '=');
+    if (eq_pos) {
+        size_t len = eq_pos - cmd_name;
+        if (len >= sizeof(cmd_only)) len = sizeof(cmd_only) - 1;
+        strncpy(cmd_only, cmd_name, len);
+        cmd_only[len] = '\0';
+    } else {
+        strncpy(cmd_only, cmd_name, sizeof(cmd_only) - 1);
+        cmd_only[sizeof(cmd_only) - 1] = '\0';
+    }
+    snprintf(expected_response, sizeof(expected_response), "+%s:0", cmd_only);
 
     if (readResponse()) {
         if (strstr(_response_buffer, expected_response) != nullptr) {

@@ -89,10 +89,20 @@ void WatchFace::onTimer(lv_timer_t *timer) {
     // Update status
     GPS_Info_t gps;
     HAL::GPS_GetInfo(&gps);
-    char statusBuf[20];
-    snprintf(statusBuf, sizeof(statusBuf), "%s %s R  85%%",
-             gps.isValid ? "G" : "g",
-             WiFi.status() == WL_CONNECTED ? "W" : "w");
+    char statusBuf[24];
+
+    if (HAL::PTT_IsPressed()) {
+        snprintf(statusBuf, sizeof(statusBuf), "%s %s R  TX",
+                 gps.isValid ? "G" : "g",
+                 WiFi.status() == WL_CONNECTED ? "W" : "w");
+    } else {
+        int batt = HAL::Power_GetPercent();
+        bool chg = HAL::Power_IsCharging();
+        snprintf(statusBuf, sizeof(statusBuf), chg ? "%s %s R  %d%%+" : "%s %s R  %d%%",
+                 gps.isValid ? "G" : "g",
+                 WiFi.status() == WL_CONNECTED ? "W" : "w",
+                 batt);
+    }
     lv_label_set_text(inst->lbl_status, statusBuf);
 
     // Any key → back to StartUp

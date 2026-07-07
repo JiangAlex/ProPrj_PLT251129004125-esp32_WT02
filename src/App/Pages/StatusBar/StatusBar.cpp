@@ -86,14 +86,15 @@ static void StatusBar_UpdateTimer(lv_timer_t *timer)
         lv_label_set_text(ui.satellite.label, icons);
     }
 
-    // 更新電池（模擬值）
+    // 更新電池（真實數據）
     if (ui.battery.label) {
         if (HAL::PTT_IsPressed()) {
             lv_label_set_text(ui.battery.label, "TX");
         } else {
-            int battPercent = 85 + (millis() / 60000) % 15;
+            int battPercent = HAL::Power_GetPercent();
+            bool charging = HAL::Power_IsCharging();
             char battBuf[16];
-            snprintf(battBuf, sizeof(battBuf), "%d%%", battPercent);
+            snprintf(battBuf, sizeof(battBuf), charging ? "%d%%+" : "%d%%", battPercent);
             lv_label_set_text(ui.battery.label, battBuf);
         }
     }
@@ -151,13 +152,13 @@ lv_obj_t *Page::StatusBar_Create(lv_obj_t *par)
     
     ui.labelClock = timeLabel;
 
-    // Status icons label (right of center, before battery)
+    // Status icons label (center area, between time and battery)
     lv_obj_t* iconsLabel = lv_label_create(topBar);
     lv_label_set_text(iconsLabel, "");
     lv_obj_set_style_text_font(iconsLabel, &lv_font_unscii_8, 0);
     lv_obj_set_style_text_color(iconsLabel, lv_color_white(), 0);
     lv_obj_set_style_bg_opa(iconsLabel, LV_OPA_TRANSP, 0);
-    lv_obj_align(iconsLabel, LV_ALIGN_RIGHT_MID, -30, 0);
+    lv_obj_align(iconsLabel, LV_ALIGN_CENTER, 0, 0);
     ui.satellite.label = iconsLabel;
     
     // 右側電池標籤
@@ -170,8 +171,8 @@ lv_obj_t *Page::StatusBar_Create(lv_obj_t *par)
     
     ui.battery.label = batteryLabel;
     
-    // 創建定時器每秒更新時間
-    ui.updateTimer = lv_timer_create(StatusBar_UpdateTimer, 1000, nullptr);
+    // 創建定時器更新狀態（200ms 以即時反映 TX 狀態）
+    ui.updateTimer = lv_timer_create(StatusBar_UpdateTimer, 200, nullptr);
     
     Serial.printf("StatusBar created with real clock (current: %s)\n", timeBuf);
     return topBar;
